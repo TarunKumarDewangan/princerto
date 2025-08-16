@@ -1,0 +1,50 @@
+.homepage-wrapper {
+    background-color: #f4f7f6; /* A light, clean background color */
+}
+
+.section-title {
+    color: #333;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sub-section-title {
+    color: #555;
+    border-bottom: 2px solid #0d6efd; /* Bootstrap primary color */
+    padding-bottom: 10px;
+    display: inline-block;
+}
+
+.service-panel {
+    border: none;
+    background-color: #ffffff;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease-in-out;
+    height: 150px; /* Fixed height for uniform look */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.service-panel:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.service-panel .card-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #333;
+}
+
+/* A simple placeholder for the icon */
+.icon-placeholder {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #e9ecef; /* A neutral placeholder color */
+    margin: 0 auto;
+}

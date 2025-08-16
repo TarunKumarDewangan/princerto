@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vehicle;
+use App\Models\VehicleFitness;
+use Illuminate\Http\Request;
+use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Validation\Rule;
+
+class VehicleFitnessController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+        $this->middleware(RoleMiddleware::class . ':admin,manager')->except(['indexByVehicle']);
+    }
+
+    public function indexByVehicle(Vehicle $vehicle)
+    {
+        return $vehicle->fitnesses()->orderBy('expiry_date', 'desc')->paginate(10);
+    }
+
+    public function storeForVehicle(Request $request, Vehicle $vehicle)
+    {
+        $data = $request->validate([
+            'certificate_number' => 'required|string|max:255|unique:vehicle_fitnesses,certificate_number',
+            'issue_date' => 'required|date',
+            'expiry_date' => 'required|date|after_or_equal:issue_date',
+        ]);
+        $fitness = $vehicle->fitnesses()->create($data);
+        return response()->json($fitness, 201);
+    }
+
+    public function update(Request $request, VehicleFitness $fitness)
+    {
+        $data = $request->validate([
+            'certificate_number' => ['required', 'string', 'max:255', Rule::unique('vehicle_fitnesses')->ignore($fitness->id)],
+            'issue_date' => 'required|date',
+            'expiry_date' => 'required|date|after_or_equal:issue_date',
+        ]);
+        $fitness->update($data);
+        return $fitness->fresh();
+    }
+
+    public function destroy(VehicleFitness $fitness)
+    {
+        $fitness->delete();
+        return response()->json(['message' => 'Fitness record deleted successfully.']);
+    }
+}

@@ -1,0 +1,19 @@
+.global-search-wrapper {
+    position: relative;
+    width: 300px; /* Adjust width as needed */
+}
+
+.search-results-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1050; /* Ensure it's above other content */
+    background-color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.25rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    margin-top: 5px;
+    max-height: 400px;
+    overflow-y: auto;
+}
