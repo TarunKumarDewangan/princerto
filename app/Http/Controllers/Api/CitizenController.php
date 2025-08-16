@@ -28,7 +28,13 @@ class CitizenController extends Controller
         $authUser = $request->user();
 
         $query = Citizen::query()
-            ->where('user_id', $authUser->id)
+            // --- START OF THE FIX ---
+            // This 'when' clause applies the filter ONLY if the logged-in user has the 'user' role.
+            // For 'admin' or 'manager', this condition is false, so no user_id filter is applied.
+            ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
+                $b->where('user_id', $authUser->id);
+            })
+            // --- END OF THE FIX ---
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
                     $x->where('name', 'like', "%{$q}%")
@@ -76,11 +82,6 @@ class CitizenController extends Controller
         return $citizen;
     }
 
-    // --- START OF NEW METHOD ---
-    /**
-     * GET /api/citizens/{citizen}/all-details
-     * Gathers all related data for a citizen in one efficient query.
-     */
     public function getAllDetails(Citizen $citizen, Request $request)
     {
         $authUser = $request->user();
@@ -88,7 +89,6 @@ class CitizenController extends Controller
             abort(403, 'This action is unauthorized.');
         }
 
-        // Eager load everything in one go.
         $citizen->load([
             'learnerLicenses',
             'drivingLicenses',
@@ -103,7 +103,6 @@ class CitizenController extends Controller
 
         return $citizen;
     }
-    // --- END OF NEW METHOD ---
 
     public function update(UpdateCitizenRequest $request, Citizen $citizen)
     {

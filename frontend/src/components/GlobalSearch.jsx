@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Form, ListGroup, Spinner, Badge } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/apiClient';
-import './GlobalSearch.css'; // We will create this CSS file next
+import './GlobalSearch.css';
 
 export default function GlobalSearch() {
   const [query, setQuery] = useState('');
@@ -11,7 +11,6 @@ export default function GlobalSearch() {
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
 
-  // This effect runs a search API call when the user stops typing
   useEffect(() => {
     if (query.length < 2) {
       setResults([]);
@@ -28,12 +27,12 @@ export default function GlobalSearch() {
           setResults(response.data);
         })
         .catch(() => {
-          setResults([]); // Clear results on error
+          setResults([]);
         })
         .finally(() => {
           setLoading(false);
         });
-    }, 500); // 500ms delay
+    }, 500);
 
     return () => clearTimeout(delayDebounce);
   }, [query]);
@@ -55,7 +54,7 @@ export default function GlobalSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => { if (results.length > 0) setShowResults(true); }}
-        onBlur={() => setTimeout(() => setShowResults(false), 200)} // Delay to allow click
+        onBlur={() => setTimeout(() => setShowResults(false), 200)}
       />
       {showResults && (
         <div className="search-results-popover">
@@ -66,9 +65,10 @@ export default function GlobalSearch() {
               <ListGroup.Item>No results found for "{query}"</ListGroup.Item>
             )}
 
-            {!loading && results.map((result, index) => (
+            {!loading && results.map((result) => (
               <ListGroup.Item
-                key={index}
+                // THE IMPROVEMENT IS HERE: Use the stable unique_key from the API
+                key={result.unique_key}
                 action
                 onClick={() => handleResultClick(result.url)}
               >

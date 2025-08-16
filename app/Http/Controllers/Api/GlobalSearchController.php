@@ -18,17 +18,13 @@ class GlobalSearchController extends Controller
         $this->middleware(RoleMiddleware::class . ':admin,manager');
     }
 
-    /**
-     * Handle a global search request.
-     * GET /api/global-search?query=...
-     */
     public function search(Request $request)
     {
         $query = $request->validate(['query' => 'required|string|min:2'])['query'];
 
         $results = [];
 
-        // Search Citizens by name or mobile
+        // Search Citizens
         $citizens = Citizen::where('name', 'LIKE', "%{$query}%")
             ->orWhere('mobile', 'LIKE', "%{$query}%")
             ->limit(5)
@@ -36,6 +32,7 @@ class GlobalSearchController extends Controller
 
         foreach ($citizens as $citizen) {
             $results[] = [
+                'unique_key' => 'citizen-' . $citizen->id, // THE FIX IS HERE
                 'type' => 'Citizen',
                 'title' => $citizen->name,
                 'description' => 'Mobile: ' . $citizen->mobile,
@@ -43,16 +40,16 @@ class GlobalSearchController extends Controller
             ];
         }
 
-        // Search Learner Licenses by LL No OR Application No
+        // Search Learner Licenses
         $lls = LearnerLicense::with('citizen:id,name')
             ->where('ll_no', 'LIKE', "%{$query}%")
-            // THE CHANGE IS HERE: Added search for application_no
             ->orWhere('application_no', 'LIKE', "%{$query}%")
             ->limit(5)
             ->get();
 
         foreach ($lls as $ll) {
             $results[] = [
+                'unique_key' => 'll-' . $ll->id, // THE FIX IS HERE
                 'type' => 'Learner License',
                 'title' => $ll->ll_no . ($ll->application_no ? " / " . $ll->application_no : ""),
                 'description' => 'Holder: ' . $ll->citizen->name,
@@ -60,16 +57,16 @@ class GlobalSearchController extends Controller
             ];
         }
 
-        // Search Driving Licenses by DL No OR Application No
+        // Search Driving Licenses
         $dls = DrivingLicense::with('citizen:id,name')
             ->where('dl_no', 'LIKE', "%{$query}%")
-            // THE CHANGE IS HERE: Added search for application_no
             ->orWhere('application_no', 'LIKE', "%{$query}%")
             ->limit(5)
             ->get();
 
         foreach ($dls as $dl) {
             $results[] = [
+                'unique_key' => 'dl-' . $dl->id, // THE FIX IS HERE
                 'type' => 'Driving License',
                 'title' => $dl->dl_no . ($dl->application_no ? " / " . $dl->application_no : ""),
                 'description' => 'Holder: ' . $dl->citizen->name,
@@ -77,7 +74,7 @@ class GlobalSearchController extends Controller
             ];
         }
 
-        // Search Vehicles by Registration No
+        // Search Vehicles
         $vehicles = Vehicle::with('citizen:id,name')
             ->where('registration_no', 'LIKE', "%{$query}%")
             ->limit(5)
@@ -85,6 +82,7 @@ class GlobalSearchController extends Controller
 
         foreach ($vehicles as $vehicle) {
             $results[] = [
+                'unique_key' => 'vehicle-' . $vehicle->id, // THE FIX IS HERE
                 'type' => 'Vehicle',
                 'title' => $vehicle->registration_no,
                 'description' => 'Owner: ' . $vehicle->citizen->name,
@@ -92,9 +90,9 @@ class GlobalSearchController extends Controller
             ];
         }
 
-        // To avoid duplicate results (e.g., if LL No and App No both match the query)
-        // we can unique the results based on the URL.
-        $uniqueResults = collect($results)->unique('url')->values()->all();
+        // THE FIX IS HERE: We now de-duplicate based on the unique key for each item,
+        // not the owner's URL. This will show all distinct results.
+        $uniqueResults = collect($results)->unique('unique_key')->values()->all();
 
         return response()->json($uniqueResults);
     }
