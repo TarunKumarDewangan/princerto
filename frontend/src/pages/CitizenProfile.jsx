@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Table, Badge, Tabs, Tab, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Table, Badge, Tabs, Tab, Alert, Spinner, Form } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/apiClient';
 import LLFormModal from '../components/LLFormModal';
@@ -54,6 +54,8 @@ export default function CitizenProfile() {
   const [veh, setVeh] = useState({ data: [], meta: null });
   const [allDetails, setAllDetails] = useState(null);
   const [loadingAllDetails, setLoadingAllDetails] = useState(false);
+
+  const [selectedVehicleId, setSelectedVehicleId] = useState('all');
 
   const [showLL, setShowLL] = useState(false);
   const [showDL, setShowDL] = useState(false);
@@ -125,8 +127,11 @@ export default function CitizenProfile() {
 
   const handleTabSelect = async (key) => {
     setActiveTab(key);
-    if (key === 'all' && !allDetails) {
-      refreshAllDetails();
+    if (key === 'all') {
+      setSelectedVehicleId('all');
+      if (!allDetails) {
+        refreshAllDetails();
+      }
     }
   };
 
@@ -138,20 +143,24 @@ export default function CitizenProfile() {
   const handleVehEdit = (record) => { setEditingVeh(record); setShowVehEdit(true); };
   const handleVehDelete = async (recordId) => { if (window.confirm('Delete this Vehicle record?')) { try { await api.delete(`/vehicles/${recordId}`); toast.success('Record deleted.'); loadPageData(); refreshAllDetails();} catch (e) { toast.error(e?.response?.data?.message || 'Delete failed.'); } } };
   const handleShowInsurance = (vehicle) => { setInsuranceVehicle(vehicle); setShowInsurance(true); };
-  const handleShowInsuranceEdit = (insuranceRecord) => { setEditingInsurance(insuranceRecord); setShowInsuranceEdit(true); setShowInsurance(false); };
+  const handleShowInsuranceEdit = (insuranceRecord) => { setEditingInsurance(insuranceRecord); setShowInsuranceEdit(true); };
   const handleShowPucc = (vehicle) => { setPuccVehicle(vehicle); setShowPucc(true); };
-  const handleShowPuccEdit = (puccRecord) => { setEditingPucc(puccRecord); setShowPuccEdit(true); setShowPucc(false); };
+  const handleShowPuccEdit = (puccRecord) => { setEditingPucc(puccRecord); setShowPuccEdit(true); };
   const handleShowFitness = (vehicle) => { setFitnessVehicle(vehicle); setShowFitness(true); };
-  const handleShowFitnessEdit = (record) => { setEditingFitness(record); setShowFitnessEdit(true); setShowFitness(false); };
+  const handleShowFitnessEdit = (record) => { setEditingFitness(record); setShowFitnessEdit(true); };
   const handleShowVltd = (vehicle) => { setVltdVehicle(vehicle); setShowVltd(true); };
-  const handleShowVltdEdit = (record) => { setEditingVltd(record); setShowVltdEdit(true); setShowVltd(false); };
+  const handleShowVltdEdit = (record) => { setEditingVltd(record); setShowVltdEdit(true); };
   const handleShowPermit = (vehicle) => { setPermitVehicle(vehicle); setShowPermit(true); };
-  const handleShowPermitEdit = (record) => { setEditingPermit(record); setShowPermitEdit(true); setShowPermit(false); };
+  const handleShowPermitEdit = (record) => { setEditingPermit(record); setShowPermitEdit(true); };
   const handleShowSpeedGovernor = (vehicle) => { setSpeedGovernorVehicle(vehicle); setShowSpeedGovernor(true); };
-  const handleShowSpeedGovernorEdit = (record) => { setEditingSpeedGovernor(record); setShowSpeedGovernorEdit(true); setShowSpeedGovernor(false); };
+  const handleShowSpeedGovernorEdit = (record) => { setEditingSpeedGovernor(record); setShowSpeedGovernorEdit(true); };
 
   if (err) return <Container className="py-4"><Alert variant="danger">{err}</Alert></Container>;
   if (!citizen) return <Container className="py-4 text-center"><Spinner /></Container>;
+
+  const vehiclesToDisplay = allDetails?.vehicles?.filter(v =>
+    selectedVehicleId === 'all' || v.id === parseInt(selectedVehicleId)
+  ) || [];
 
   return (
     <Container className="py-4">
@@ -186,47 +195,20 @@ export default function CitizenProfile() {
               <Card className="mb-3"><Card.Header as="h5" className="d-flex justify-content-between align-items-center">Driving Licenses<Button variant="outline-secondary" size="sm" onClick={() => setActiveTab('dl')}>Manage DL</Button></Card.Header><Card.Body>{allDetails.driving_licenses.length > 0 ? (<Table striped bordered size="sm"><thead><tr><th>DL No</th><th>App No</th><th>Issue</th><th>Expiry</th><th>Class</th></tr></thead><tbody>{allDetails.driving_licenses.map(item => (<tr key={item.id}><td>{item.dl_no}</td><td>{item.application_no || '-'}</td><td>{formatDate(item.issue_date)}</td><td>{formatDate(item.expiry_date)}</td><td>{item.vehicle_class || '-'}</td></tr>))}</tbody></Table>) : <p>No driving license records found.</p>}</Card.Body></Card>
 
               <h5 className="mt-4 mb-3">Vehicles</h5>
-              {allDetails.vehicles.length > 0 ? (
-                allDetails.vehicles.map(v => (
+              {allDetails.vehicles.length > 1 && (<Row className="mb-3"><Col md={4}><Form.Group><Form.Label>Filter by Vehicle</Form.Label><Form.Select value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)}><option value="all">Show All Vehicles</option>{allDetails.vehicles.map(v => (<option key={v.id} value={v.id}>{v.registration_no}</option>))}</Form.Select></Form.Group></Col></Row>)}
+
+              {vehiclesToDisplay.length > 0 ? (
+                vehiclesToDisplay.map(v => (
                   <Card key={v.id} className="mb-3">
                     <Card.Header className="d-flex justify-content-between align-items-center"><strong>{v.registration_no}</strong> — {v.make_model || 'N/A'}{canWrite && <Button variant="outline-primary" size="sm" onClick={() => handleVehEdit(v)}>Edit Vehicle</Button>}</Card.Header>
-                    <Card.Body className="p-0">
-                      {/* --- START: NEW PER-DOCUMENT SECTIONS --- */}
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>Insurance</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowInsurance(v)}>Manage</Button></div>
-                        {v.insurances.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Policy #</th><th>Company</th><th>Type</th><th>Valid Upto</th><th>Status</th><th></th></tr></thead><tbody>{v.insurances.map(i => <tr key={i.id}><td>{i.policy_number}</td><td>{i.company_name}</td><td>{i.insurance_type}</td><td>{formatDate(i.end_date)}</td><td><Badge bg={i.status === 'active' ? 'success' : 'danger'}>{i.status}</Badge></td><td><Button size="sm" variant="link" onClick={() => handleShowInsuranceEdit(i)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No insurance records.</small>}
-                      </div>
-
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>PUCC</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowPucc(v)}>Manage</Button></div>
-                        {v.puccs.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>PUCC #</th><th>Valid From</th><th>Valid Until</th><th>Status</th><th></th></tr></thead><tbody>{v.puccs.map(p => <tr key={p.id}><td>{p.pucc_number}</td><td>{formatDate(p.valid_from)}</td><td>{formatDate(p.valid_until)}</td><td><Badge bg={p.status === 'active' ? 'success' : 'danger'}>{p.status}</Badge></td><td><Button size="sm" variant="link" onClick={() => handleShowPuccEdit(p)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No PUCC records.</small>}
-                      </div>
-
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>Fitness</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowFitness(v)}>Manage</Button></div>
-                        {v.fitnesses.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.fitnesses.map(f => <tr key={f.id}><td>{f.certificate_number}</td><td>{formatDate(f.issue_date)}</td><td>{formatDate(f.expiry_date)}</td><td><Button size="sm" variant="link" onClick={() => handleShowFitnessEdit(f)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No fitness records.</small>}
-                      </div>
-
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>Tax</h6><Button size="sm" variant="outline-secondary" onClick={() => { setTaxVehicle(v); setShowTax(true); }}>Manage</Button></div>
-                        {v.taxes.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Mode</th><th>From</th><th>Upto</th></tr></thead><tbody>{v.taxes.map(t => <tr key={t.id}><td>{t.tax_mode}</td><td>{formatDate(t.tax_from)}</td><td>{formatDate(t.tax_upto)}</td></tr>)}</tbody></Table> : <small>No tax records.</small>}
-                      </div>
-
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>Permit</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowPermit(v)}>Manage</Button></div>
-                        {v.permits.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Permit #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.permits.map(p => <tr key={p.id}><td>{p.permit_number}</td><td>{formatDate(p.issue_date)}</td><td>{formatDate(p.expiry_date)}</td><td><Button size="sm" variant="link" onClick={() => handleShowPermitEdit(p)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No permit records.</small>}
-                      </div>
-
-                      <div className="p-3 border-bottom">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>Speed Governor</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowSpeedGovernor(v)}>Manage</Button></div>
-                        {v.speed_governors.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.speed_governors.map(s => <tr key={s.id}><td>{s.certificate_number}</td><td>{formatDate(s.issue_date)}</td><td>{formatDate(s.expiry_date)}</td><td><Button size="sm" variant="link" onClick={() => handleShowSpeedGovernorEdit(s)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No speed governor records.</small>}
-                      </div>
-
-                      <div className="p-3">
-                        <div className="d-flex justify-content-between align-items-center mb-2"><h6>VLTd</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowVltd(v)}>Manage</Button></div>
-                        {v.vltds.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.vltds.map(vl => <tr key={vl.id}><td>{vl.certificate_number}</td><td>{formatDate(vl.issue_date)}</td><td>{formatDate(vl.expiry_date)}</td><td><Button size="sm" variant="link" onClick={() => handleShowVltdEdit(vl)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No VLTd records.</small>}
-                      </div>
-                      {/* --- END: NEW PER-DOCUMENT SECTIONS --- */}
+                    <Card.Body>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>Insurance</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowInsurance(v)}>Manage</Button></div>{v.insurances.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Policy #</th><th>Company</th><th>Type</th><th>Valid Upto</th><th>Status</th><th></th></tr></thead><tbody>{v.insurances.map(i => <tr key={i.id}><td>{i.policy_number}</td><td>{i.company_name}</td><td>{i.insurance_type}</td><td>{formatDate(i.end_date)}</td><td><Badge bg={i.status === 'active' ? 'success' : 'danger'}>{i.status}</Badge></td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowInsuranceEdit(i)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No insurance records.</small>}</div>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>PUCC</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowPucc(v)}>Manage</Button></div>{v.puccs.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>PUCC #</th><th>Valid From</th><th>Valid Until</th><th>Status</th><th></th></tr></thead><tbody>{v.puccs.map(p => <tr key={p.id}><td>{p.pucc_number}</td><td>{formatDate(p.valid_from)}</td><td>{formatDate(p.valid_until)}</td><td><Badge bg={p.status === 'active' ? 'success' : 'danger'}>{p.status}</Badge></td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowPuccEdit(p)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No PUCC records.</small>}</div>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>Fitness</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowFitness(v)}>Manage</Button></div>{v.fitnesses.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.fitnesses.map(f => <tr key={f.id}><td>{f.certificate_number}</td><td>{formatDate(f.issue_date)}</td><td>{formatDate(f.expiry_date)}</td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowFitnessEdit(f)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No fitness records.</small>}</div>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>Tax</h6><Button size="sm" variant="outline-secondary" onClick={() => { setTaxVehicle(v); setShowTax(true); }}>Manage</Button></div>{v.taxes.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Mode</th><th>From</th><th>Upto</th></tr></thead><tbody>{v.taxes.map(t => <tr key={t.id}><td>{t.tax_mode}</td><td>{formatDate(t.tax_from)}</td><td>{formatDate(t.tax_upto)}</td></tr>)}</tbody></Table> : <small>No tax records.</small>}</div>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>Permit</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowPermit(v)}>Manage</Button></div>{v.permits.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Permit #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.permits.map(p => <tr key={p.id}><td>{p.permit_number}</td><td>{formatDate(p.issue_date)}</td><td>{formatDate(p.expiry_date)}</td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowPermitEdit(p)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No permit records.</small>}</div>
+                      <div className="border rounded p-3 mb-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>Speed Governor</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowSpeedGovernor(v)}>Manage</Button></div>{v.speed_governors.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.speed_governors.map(s => <tr key={s.id}><td>{s.certificate_number}</td><td>{formatDate(s.issue_date)}</td><td>{formatDate(s.expiry_date)}</td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowSpeedGovernorEdit(s)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No speed governor records.</small>}</div>
+                      <div className="border rounded p-3" style={{backgroundColor: '#f8f9fa'}}><div className="d-flex justify-content-between align-items-center mb-2"><h6>VLTd</h6><Button size="sm" variant="outline-secondary" onClick={() => handleShowVltd(v)}>Manage</Button></div>{v.vltds.length > 0 ? <Table responsive striped size="sm" className="mb-0"><thead><tr><th>Certificate #</th><th>Issue Date</th><th>Expiry Date</th><th></th></tr></thead><tbody>{v.vltds.map(vl => <tr key={vl.id}><td>{vl.certificate_number}</td><td>{formatDate(vl.issue_date)}</td><td>{formatDate(vl.expiry_date)}</td><td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowVltdEdit(vl)}>Edit</Button></td></tr>)}</tbody></Table> : <small>No VLTd records.</small>}</div>
                     </Card.Body>
                   </Card>
                 ))
