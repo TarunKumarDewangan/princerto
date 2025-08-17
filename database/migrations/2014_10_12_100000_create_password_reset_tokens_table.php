@@ -10,10 +10,9 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        // THIS IS THE CORRECT SCHEMA THAT LARAVEL EXPECTS
         Schema::create('password_reset_tokens', function (Blueprint $table) {
-            // Changed from email to user_id to support mobile-only users.
-            // Password reset will be disabled on the frontend for now.
-            $table->foreignId('user_id')->primary()->constrained()->onDelete('cascade');
+            $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });

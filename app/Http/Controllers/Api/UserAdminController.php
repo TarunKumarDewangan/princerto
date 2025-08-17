@@ -3,32 +3,29 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\RoleMiddleware;
-use App\Http\Requests\UpdateUserRoleRequest;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Requests\UpdateUserRoleRequest;
 use App\Models\User;
+use App\Notifications\AdminPasswordResetNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class UserAdminController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        // Only ADMIN can access all endpoints here
-        $this->middleware(RoleMiddleware::class . ':admin');
+        // Middleware is now handled in the routes file for more flexibility
     }
 
-    /**
-     * GET /api/admin/users?q=raj&role=manager&per_page=10
-     */
     public function index(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
         $role = trim((string) $request->query('role', ''));
         $per = (int) ($request->query('per_page', 10));
-
         $query = User::query()
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
@@ -39,44 +36,81 @@ class UserAdminController extends Controller
             })
             ->when($role !== '', fn(Builder $b) => $b->where('role', $role))
             ->orderBy('name');
-
         return $query->paginate($per);
     }
 
-    /**
-     * POST /api/admin/users
-     * body: { name, email, password, role }
-     */
     public function store(StoreUserRequest $request)
     {
         $data = $request->validated();
-
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'role' => $data['role'],
-        ]);
-
+        $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']), 'role' => $data['role'],]);
         return response()->json($user, 201);
     }
 
-    /**
-     * PATCH /api/admin/users/{user}/role
-     * body: { role: "admin|manager|user" }
-     */
+    public function update(UpdateUserRequest $request, User $user)
+    {
+        $loggedInUser = $request->user();
+
+        // THE FIX IS HERE: Prevent managers from editing admins or other managers
+        if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
+            abort(403, 'You do not have permission to edit this user.');
+        }
+
+        $user->update($request->validated());
+        return $user->fresh();
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        $loggedInUser = $request->user();
+
+        if ($loggedInUser->id === $user->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 422);
+        }
+
+        // THE FIX IS HERE: Prevent managers from deleting admins or other managers
+        if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
+            abort(403, 'You do not have permission to delete this user.');
+        }
+
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully.']);
+    }
+
+    public function sendResetLink(Request $request, User $user)
+    {
+        $loggedInUser = $request->user();
+
+        // THE FIX IS HERE: Prevent managers from sending resets to admins or other managers
+        if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
+            abort(403, 'You do not have permission to reset this user\'s password.');
+        }
+
+        $token = Password::broker()->createToken($user);
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/');
+        $resetUrl = "{$frontendUrl}/reset-password?token={$token}&email=" . urlencode($user->email);
+        $user->notify(new AdminPasswordResetNotification($resetUrl));
+        return response()->json(['message' => 'Password reset link sent to ' . $user->email]);
+    }
+
     public function updateRole(UpdateUserRoleRequest $request, User $user)
     {
-        // Prevent demoting yourself accidentally (optional safety)
-        if ($request->user()->id === $user->id) {
+        $loggedInUser = $request->user();
+
+        if ($loggedInUser->id === $user->id) {
             return response()->json(['message' => 'You cannot change your own role here'], 422);
         }
 
-        $user->update(['role' => $request->validated()['role']]);
+        // THE FIX IS HERE: Prevent managers from changing roles of admins/managers or promoting anyone to admin
+        if ($loggedInUser->role === 'manager') {
+            if ($user->role === 'admin' || $user->role === 'manager') {
+                abort(403, 'You do not have permission to change this user\'s role.');
+            }
+            if ($request->validated()['role'] === 'admin') {
+                abort(403, 'You do not have permission to promote a user to Admin.');
+            }
+        }
 
-        // THE FIX IS HERE:
-        // We call fresh() without arguments to get the latest model data from the database.
-        // We no longer pass an array of columns, which was causing the error.
+        $user->update(['role' => $request->validated()['role']]);
         return $user->fresh();
     }
 }

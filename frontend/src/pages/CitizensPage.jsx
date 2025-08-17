@@ -6,9 +6,27 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/apiClient';
 import CitizenFormModal from '../components/CitizenFormModal';
 
+// --- START OF THE FIX ---
+// This helper function was missing from this file.
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString.substring(0, 10));
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    if (isNaN(day)) return '-';
+    return `${day}-${month}-${year}`;
+  } catch (error) {
+    return '-';
+  }
+};
+// --- END OF THE FIX ---
+
 export default function CitizensPage() {
   const { user } = useAuth();
   const canCreate = useMemo(() => ['admin','manager', 'user'].includes(user?.role), [user]);
+  const isPrivilegedUser = useMemo(() => ['admin','manager'].includes(user?.role), [user]);
 
   const [q, setQ] = useState('');
   const [mobile, setMobile] = useState('');
@@ -124,29 +142,39 @@ export default function CitizensPage() {
 
       <div className="table-responsive">
         <Table bordered hover size="sm">
-          <thead><tr><th>#</th><th>Name / Father</th><th>Mobile / Email</th><th>DOB</th><th>Address</th><th>LL / DL / Veh</th></tr></thead>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name / Father</th>
+              <th>Mobile / Email</th>
+              <th>DOB</th>
+              <th>Address</th>
+              <th>LL / DL / Veh</th>
+              {isPrivilegedUser && <th>Created By</th>}
+            </tr>
+          </thead>
           <tbody>
-            {loading && (<tr><td colSpan={6} className="text-center">Loading...</td></tr>)}
-            {!loading && items.length === 0 && (<tr><td colSpan={6} className="text-center">No records</td></tr>)}
+            {loading && (<tr><td colSpan={isPrivilegedUser ? 7 : 6} className="text-center">Loading...</td></tr>)}
+            {!loading && items.length === 0 && (<tr><td colSpan={isPrivilegedUser ? 7 : 6} className="text-center">No records</td></tr>)}
             {!loading && items.map((c, idx) => (
               <tr key={c.id}>
                 <td>{(meta?.from ?? 1) + idx}</td>
                 <td>
                   <div className="fw-semibold">
                     <Link to={`/citizens/${c.id}`} className="text-decoration-none">{c.name}</Link>
-                    {/* THE FIX IS HERE: Add a badge to identify the user's own profile. */}
                     {c.id === user?.primary_citizen?.id && <Badge bg="info" className="ms-2">Me</Badge>}
                   </div>
-                  <div className="text-muted small">{c.father_name || '-'}</div>
+                  <div className="text-muted small">{c.relation_name || '-'}</div>
                 </td>
                 <td><div>{c.mobile}</div><div className="text-muted small">{c.email || '-'}</div></td>
-                <td>{c.dob || '-'}</td>
+                <td>{formatDate(c.dob)}</td>
                 <td className="small">{c.address || '-'}</td>
                 <td>
                   <Badge bg="light" text="dark" className="me-1">LL {c.learner_licenses_count ?? 0}</Badge>
                   <Badge bg="light" text="dark" className="me-1">DL {c.driving_licenses_count ?? 0}</Badge>
                   <Badge bg="light" text="dark">Veh {c.vehicles_count ?? 0}</Badge>
                 </td>
+                {isPrivilegedUser && <td>{c.user?.name || 'N/A'}</td>}
               </tr>
             ))}
           </tbody>

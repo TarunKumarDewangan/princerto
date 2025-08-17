@@ -28,13 +28,11 @@ class CitizenController extends Controller
         $authUser = $request->user();
 
         $query = Citizen::query()
-            // --- START OF THE FIX ---
-            // This 'when' clause applies the filter ONLY if the logged-in user has the 'user' role.
-            // For 'admin' or 'manager', this condition is false, so no user_id filter is applied.
+            // THE FIX IS HERE: We are adding `with('user:id,name')` to include the creator's info.
+            ->with('user:id,name')
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
                 $b->where('user_id', $authUser->id);
             })
-            // --- END OF THE FIX ---
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
                     $x->where('name', 'like', "%{$q}%")

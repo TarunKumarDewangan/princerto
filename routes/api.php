@@ -22,15 +22,14 @@ use App\Http\Controllers\Api\VehiclePermitController;
 use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
 
+// Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-
 Route::post('/password/forgot', [PasswordResetController::class, 'requestLink']);
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-
     Route::get('/me', function (Request $request) {
         return $request->user()->load('primaryCitizen:id,user_id,dob');
     });
@@ -51,7 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me/password', [ProfileController::class, 'changePassword']);
     Route::put('/me/phone', [ProfileController::class, 'changePhone']);
 
-    // --- THE NEW ROUTE IS HERE ---
+    // All Details Route
     Route::get('/citizens/{citizen}/all-details', [CitizenController::class, 'getAllDetails']);
 
     // Core Resources
@@ -77,35 +76,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::resource('taxes', VehicleTaxController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'storeForVehicle']);
-
     Route::resource('insurances', VehicleInsuranceController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/insurances', [VehicleInsuranceController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/insurances', [VehicleInsuranceController::class, 'storeForVehicle']);
-
     Route::resource('puccs', VehiclePuccController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/puccs', [VehiclePuccController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/puccs', [VehiclePuccController::class, 'storeForVehicle']);
-
     Route::resource('fitnesses', VehicleFitnessController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/fitnesses', [VehicleFitnessController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/fitnesses', [VehicleFitnessController::class, 'storeForVehicle']);
-
     Route::resource('vltds', VehicleVltdController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/vltds', [VehicleVltdController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/vltds', [VehicleVltdController::class, 'storeForVehicle']);
-
     Route::resource('permits', VehiclePermitController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/permits', [VehiclePermitController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/permits', [VehiclePermitController::class, 'storeForVehicle']);
-
     Route::resource('speed-governors', VehicleSpeedGovernorController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/speed-governors', [VehicleSpeedGovernorController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/speed-governors', [VehicleSpeedGovernorController::class, 'storeForVehicle']);
 
-    // Admin
-    Route::prefix('admin')->middleware(RoleMiddleware::class . ':admin')->group(function () {
+    // Admin Section
+    // THE FIX IS HERE: We now allow both 'admin' and 'manager' roles to access this group.
+    Route::prefix('admin')->middleware(RoleMiddleware::class . ':admin,manager')->group(function () {
         Route::get('/users', [UserAdminController::class, 'index']);
         Route::post('/users', [UserAdminController::class, 'store']);
         Route::patch('/users/{user}/role', [UserAdminController::class, 'updateRole']);
+        Route::put('/users/{user}', [UserAdminController::class, 'update']);
+        Route::delete('/users/{user}', [UserAdminController::class, 'destroy']);
+        Route::post('/users/{user}/send-reset-link', [UserAdminController::class, 'sendResetLink']);
     });
 });
