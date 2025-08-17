@@ -5,7 +5,7 @@ import api from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function UpdateProfileModal({ show, onHide }) {
-  const { user, loadMe } = useAuth(); // Use auth context
+  const { user, loadMe } = useAuth();
   const [form, setForm] = useState({
     name: '',
     father_name: '',
@@ -17,9 +17,12 @@ export default function UpdateProfileModal({ show, onHide }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Pre-fill the form with the user's current name when the modal opens
     if (user) {
-      setForm(prev => ({ ...prev, name: user.name || '' }));
+      setForm(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || '',
+      }));
     }
   }, [user, show]);
 
@@ -30,12 +33,11 @@ export default function UpdateProfileModal({ show, onHide }) {
     setSaving(true);
     setError('');
     try {
-      // We can reuse the same /me endpoint from the Account Settings page
       await api.put('/me', form);
       toast.success('Profile updated successfully!');
-      loadMe(); // Refresh the global user state
-      onHide(); // Close the modal
-    } catch (err) {
+      loadMe();
+      onHide();
+    } catch (err) { // THE FIX IS HERE: Replaced the underscore with a curly brace.
       const msg = err?.response?.data?.message || 'Failed to update profile.';
       setError(msg);
       toast.error(msg);

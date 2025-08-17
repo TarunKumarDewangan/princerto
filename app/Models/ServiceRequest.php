@@ -16,6 +16,8 @@ class ServiceRequest extends Model
      */
     protected $fillable = [
         'user_id',
+        'contact_name',   // THE FIX IS HERE
+        'contact_phone',  // THE FIX IS HERE
         'category',
         'services',
         'query',
@@ -28,8 +30,6 @@ class ServiceRequest extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        // This automatically converts the 'services' column from JSON in the database
-        // to a PHP array when we access it in our code, and vice-versa.
         'services' => 'array',
     ];
 

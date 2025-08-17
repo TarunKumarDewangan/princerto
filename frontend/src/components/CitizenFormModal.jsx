@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
 
-// --- START OF NEW DATA ---
 const statesAndUTs = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
   "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi",
@@ -23,7 +22,6 @@ const chhattisgarhDistricts = [
   "Mohla-Manpur-Ambagarh Chowki", "Mungeli", "Narayanpur", "Raigarh", "Raipur",
   "Rajnandgaon", "Sakti", "Sarangarh-Bilaigarh", "Sukma", "Surajpur", "Surguja"
 ].sort();
-// --- END OF NEW DATA ---
 
 export default function CitizenFormModal({ show, onHide, onCreated }) {
   const { user } = useAuth();
@@ -52,10 +50,12 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
 
   useEffect(() => {
     if (profileType === 'self' && user) {
+      // THE FIX IS HERE: Pre-fill the email and keep other fields empty.
       setForm({
         name: user.name || '',
         mobile: user.phone || '',
-        email: '', dob: '', address: '', state: '', city: '', relation_name: '', relation_type: '',
+        email: user.email || '',
+        dob: '', address: '', state: '', city: '', relation_name: '', relation_type: '',
       });
     } else {
       setForm({
@@ -106,8 +106,10 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
           )}
 
           <Row className="g-3">
-            <Col md={6}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => update('name', e.target.value)} required disabled={profileType === 'self'} /></Form.Group></Col>
-            <Col md={6}><Form.Group><Form.Label>Mobile Number *</Form.Label><Form.Control value={form.mobile} onChange={e => update('mobile', e.target.value)} required disabled={profileType === 'self'} /></Form.Group></Col>
+            {/* THE FIX IS HERE: The 'disabled' prop has been removed from Name and Mobile Number fields. */}
+            <Col md={6}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => update('name', e.target.value)} required /></Form.Group></Col>
+            <Col md={6}><Form.Group><Form.Label>Mobile Number *</Form.Label><Form.Control value={form.mobile} onChange={e => update('mobile', e.target.value)} required /></Form.Group></Col>
+
             <Col md={6}><Form.Group><Form.Label>Email</Form.Label><Form.Control type="email" value={form.email} onChange={e => update('email', e.target.value)} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Birth Date</Form.Label><Form.Control type="date" value={form.dob} onChange={e => update('dob', e.target.value)} /></Form.Group></Col>
             <Col md={6}>
@@ -121,14 +123,12 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
             </Col>
             <Col md={12}><Form.Group><Form.Label>Address</Form.Label><Form.Control as="textarea" rows={2} value={form.address} onChange={e => update('address', e.target.value)} /></Form.Group></Col>
 
-            {/* --- START OF MODIFIED STATE/CITY FIELDS --- */}
             <Col md={6}>
               <Form.Group>
                 <Form.Label>State</Form.Label>
                 <Form.Select value={form.state} onChange={e => {
                   const newState = e.target.value;
                   update('state', newState);
-                  // If the new state is not Chhattisgarh, reset the city field.
                   if (newState !== 'Chhattisgarh') {
                       update('city', '');
                   }
@@ -151,7 +151,6 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
                 )}
               </Form.Group>
             </Col>
-            {/* --- END OF MODIFIED STATE/CITY FIELDS --- */}
 
           </Row>
         </Modal.Body>

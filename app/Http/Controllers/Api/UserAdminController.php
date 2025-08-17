@@ -42,19 +42,25 @@ class UserAdminController extends Controller
     public function store(StoreUserRequest $request)
     {
         $data = $request->validated();
-        $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']), 'role' => $data['role'],]);
+
+        // THE FIX IS HERE: We now include the 'phone' number when creating the user.
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'phone' => $data['phone'] ?? null, // Ensure phone is included
+            'password' => Hash::make($data['password']),
+            'role' => $data['role'],
+        ]);
+
         return response()->json($user, 201);
     }
 
     public function update(UpdateUserRequest $request, User $user)
     {
         $loggedInUser = $request->user();
-
-        // THE FIX IS HERE: Prevent managers from editing admins or other managers
         if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
             abort(403, 'You do not have permission to edit this user.');
         }
-
         $user->update($request->validated());
         return $user->fresh();
     }
@@ -62,16 +68,12 @@ class UserAdminController extends Controller
     public function destroy(Request $request, User $user)
     {
         $loggedInUser = $request->user();
-
         if ($loggedInUser->id === $user->id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 422);
         }
-
-        // THE FIX IS HERE: Prevent managers from deleting admins or other managers
         if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
             abort(403, 'You do not have permission to delete this user.');
         }
-
         $user->delete();
         return response()->json(['message' => 'User deleted successfully.']);
     }
@@ -79,12 +81,9 @@ class UserAdminController extends Controller
     public function sendResetLink(Request $request, User $user)
     {
         $loggedInUser = $request->user();
-
-        // THE FIX IS HERE: Prevent managers from sending resets to admins or other managers
         if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
             abort(403, 'You do not have permission to reset this user\'s password.');
         }
-
         $token = Password::broker()->createToken($user);
         $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/');
         $resetUrl = "{$frontendUrl}/reset-password?token={$token}&email=" . urlencode($user->email);
@@ -95,12 +94,9 @@ class UserAdminController extends Controller
     public function updateRole(UpdateUserRoleRequest $request, User $user)
     {
         $loggedInUser = $request->user();
-
         if ($loggedInUser->id === $user->id) {
             return response()->json(['message' => 'You cannot change your own role here'], 422);
         }
-
-        // THE FIX IS HERE: Prevent managers from changing roles of admins/managers or promoting anyone to admin
         if ($loggedInUser->role === 'manager') {
             if ($user->role === 'admin' || $user->role === 'manager') {
                 abort(403, 'You do not have permission to change this user\'s role.');
@@ -109,7 +105,6 @@ class UserAdminController extends Controller
                 abort(403, 'You do not have permission to promote a user to Admin.');
             }
         }
-
         $user->update(['role' => $request->validated()['role']]);
         return $user->fresh();
     }

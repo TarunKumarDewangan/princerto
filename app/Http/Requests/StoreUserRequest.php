@@ -9,13 +9,10 @@ class StoreUserRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
-     *
-     * @return bool
      */
     public function authorize(): bool
     {
-        // Authorization is handled by the 'admin' middleware on the route itself.
-        // We can safely return true here.
+        // Authorization is handled by middleware.
         return true;
     }
 
@@ -29,8 +26,10 @@ class StoreUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            // THE FIX IS HERE: Added the 'phone' validation rule.
+            'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
             'password' => ['required', 'string', Password::min(8)],
-            'role' => ['required', 'string', 'in:manager,user'], // Ensures only 'manager' or 'user' can be created
+            'role' => ['required', 'string', 'in:manager,user'],
         ];
     }
 }

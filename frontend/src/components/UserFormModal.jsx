@@ -7,18 +7,19 @@ export default function UserFormModal({ show, onHide, onCreated }) {
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phone: '', // Field was missing
     password: '',
-    role: 'manager', // Default role selection
+    role: 'manager',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Reset form when the modal is shown
   useEffect(() => {
     if (show) {
       setForm({
         name: '',
         email: '',
+        phone: '', // Reset the field
         password: '',
         role: 'manager',
       });
@@ -34,8 +35,8 @@ export default function UserFormModal({ show, onHide, onCreated }) {
     setSubmitting(true);
     try {
       const { data } = await api.post('/admin/users', form);
-      onCreated?.(data); // Callback to refresh the user list
-      onHide(); // Close the modal
+      onCreated?.(data);
+      onHide();
       toast.success(`User '${data.name}' created successfully as a ${data.role}.`);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to create user';
@@ -65,6 +66,13 @@ export default function UserFormModal({ show, onHide, onCreated }) {
               <Form.Group>
                 <Form.Label>Email *</Form.Label>
                 <Form.Control type="email" value={form.email} onChange={e => update('email', e.target.value)} required />
+              </Form.Group>
+            </Col>
+            {/* THE FIX IS HERE: Added the Phone form group */}
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Phone</Form.Label>
+                <Form.Control type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} />
               </Form.Group>
             </Col>
             <Col md={12}>
