@@ -3,7 +3,6 @@ import { Container, Table, Alert, Spinner, Pagination, Badge, Form, Row, Col, Bu
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-// Helper to render status badges with different colors
 const StatusBadge = ({ status }) => {
   const variant = {
     pending: 'warning',
@@ -96,15 +95,18 @@ export default function ServiceRequestsPage() {
               {requests.map((req, idx) => (
                 <tr key={req.id}>
                   <td>{(meta ? meta.from : 1) + idx}</td>
-                  <td>{req.user?.name || 'N/A'}</td>
-                  <td>{req.user?.phone || 'N/A'}</td>
+                  {/* --- START OF THE FIX --- */}
+                  {/* Use contact_name if the user is a guest, otherwise use the linked user's name. */}
+                  <td>{req.user?.name || req.contact_name || 'N/A'}</td>
+                  {/* Use contact_phone if the user is a guest, otherwise use the linked user's phone. */}
+                  <td>{req.user?.phone || req.contact_phone || 'N/A'}</td>
+                  {/* --- END OF THE FIX --- */}
                   <td>{req.category.toUpperCase()}</td>
                   <td>{req.services && req.services.length > 0 ? req.services.join(', ') : 'N/A'}</td>
                   <td>{req.query || 'N/A'}</td>
                   <td><StatusBadge status={req.status} /></td>
                   <td>
                     <ButtonGroup size="sm">
-                      {/* THE NEW BUTTON IS HERE */}
                       <Button variant="outline-warning" disabled={updatingId === req.id || req.status === 'pending'} onClick={() => handleStatusUpdate(req.id, 'pending')}>Pending</Button>
                       <Button variant="outline-info" disabled={updatingId === req.id || req.status === 'contacted'} onClick={() => handleStatusUpdate(req.id, 'contacted')}>Contacted</Button>
                       <Button variant="outline-success" disabled={updatingId === req.id || req.status === 'completed'} onClick={() => handleStatusUpdate(req.id, 'completed')}>Completed</Button>

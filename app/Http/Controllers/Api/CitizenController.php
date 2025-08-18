@@ -15,8 +15,7 @@ class CitizenController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware(RoleMiddleware::class . ':admin,manager')
-            ->only(['update', 'destroy']);
+        $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['update', 'destroy']);
     }
 
     public function index(Request $request)
@@ -24,13 +23,13 @@ class CitizenController extends Controller
         $q = trim((string) $request->query('q', ''));
         $mob = trim((string) $request->query('mobile', ''));
         $per = (int) ($request->query('per_page', 10));
-
         $authUser = $request->user();
 
+        // REVERTED: Stable query logic that uses the 'user' relationship.
         $query = Citizen::query()
-            // THE FIX IS HERE: We are adding `with('user:id,name')` to include the creator's info.
-            ->with('user:id,name')
+            ->with('user:id,name') // We now get the creator from the user_id link
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
+                // Regular users can only see profiles they have created.
                 $b->where('user_id', $authUser->id);
             })
             ->when($q !== '', function (Builder $b) use ($q) {
@@ -50,15 +49,17 @@ class CitizenController extends Controller
     public function store(StoreCitizenRequest $request)
     {
         $data = $request->validated();
-        $user = $request->user();
+        $loggedInUser = $request->user();
 
-        $data['user_id'] = $user->id;
+        // REVERTED: This now correctly sets the creator as the logged-in user.
+        $data['user_id'] = $loggedInUser->id;
 
         $citizen = Citizen::create($data);
 
-        if ($request->input('is_self') === true && !$user->citizen_id) {
-            $user->citizen_id = $citizen->id;
-            $user->save();
+        // This logic is for the "Myself" profile creation scenario
+        if ($request->input('is_self') === true && !$loggedInUser->citizen_id) {
+            $loggedInUser->citizen_id = $citizen->id;
+            $loggedInUser->save();
         }
 
         return response()->json($citizen, 201);
@@ -67,16 +68,11 @@ class CitizenController extends Controller
     public function show(Citizen $citizen, Request $request)
     {
         $authUser = $request->user();
-
         if ($authUser->role === 'user' && $citizen->user_id !== $authUser->id) {
             abort(403, 'This action is unauthorized.');
         }
 
-        $citizen->load([
-            'learnerLicenses:id,citizen_id,ll_no,expiry_date',
-            'drivingLicenses:id,citizen_id,dl_no,expiry_date',
-            'vehicles:id,citizen_id,registration_no'
-        ]);
+        $citizen->load(['learnerLicenses', 'drivingLicenses', 'vehicles']);
         return $citizen;
     }
 
@@ -87,18 +83,7 @@ class CitizenController extends Controller
             abort(403, 'This action is unauthorized.');
         }
 
-        $citizen->load([
-            'learnerLicenses',
-            'drivingLicenses',
-            'vehicles.insurances',
-            'vehicles.puccs',
-            'vehicles.fitnesses',
-            'vehicles.permits',
-            'vehicles.vltds',
-            'vehicles.speedGovernors',
-            'vehicles.taxes'
-        ]);
-
+        $citizen->load(['learnerLicenses', 'drivingLicenses', 'vehicles.insurances', 'vehicles.puccs', 'vehicles.fitnesses', 'vehicles.permits', 'vehicles.vltds', 'vehicles.speedGovernors', 'vehicles.taxes']);
         return $citizen;
     }
 

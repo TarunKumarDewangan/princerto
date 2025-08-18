@@ -32,14 +32,14 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
+        // REVERTED: We now correctly check for the 'primaryCitizen' relationship.
+        $citizen = $user->primaryCitizen;
+
         $pendingRequestsCount = ServiceRequest::where('user_id', $user->id)
             ->where('status', 'pending')
             ->count();
 
-        // THE FIX IS HERE: Calculate stats based on ALL citizens created by the user.
-        $createdCitizenIds = $user->createdCitizens()->pluck('id');
-
-        if ($createdCitizenIds->isEmpty()) {
+        if (!$citizen) {
             return response()->json([
                 'll_count' => 0,
                 'dl_count' => 0,
@@ -48,9 +48,10 @@ class DashboardController extends Controller
             ]);
         }
 
-        $llCount = \App\Models\LearnerLicense::whereIn('citizen_id', $createdCitizenIds)->count();
-        $dlCount = \App\Models\DrivingLicense::whereIn('citizen_id', $createdCitizenIds)->count();
-        $vehicleCount = \App\Models\Vehicle::whereIn('citizen_id', $createdCitizenIds)->count();
+        // REVERTED: The stats are now correctly calculated based on the single primary citizen profile.
+        $llCount = $citizen->learnerLicenses()->count();
+        $dlCount = $citizen->drivingLicenses()->count();
+        $vehicleCount = $citizen->vehicles()->count();
 
         return response()->json([
             'll_count' => $llCount,

@@ -17,34 +17,17 @@ class User extends Authenticatable
         'phone',
         'password',
         'role',
-        'citizen_id', // THE FIX IS HERE: Add citizen_id to fillable
+        'citizen_id',
     ];
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
+    protected $hidden = ['password', 'remember_token',];
+    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed',];
 
     /**
-     * THE FIX IS HERE: A User is linked to ONE primary citizen profile.
-     * This represents the user's own identity.
+     * A User is linked to ONE primary citizen profile (their own identity).
      */
     public function primaryCitizen()
     {
         return $this->belongsTo(Citizen::class, 'citizen_id');
-    }
-
-    /**
-     * THE FIX IS HERE: A User can create and manage MANY citizen profiles.
-     * This is the core of the new feature.
-     */
-    public function createdCitizens()
-    {
-        return $this->hasMany(Citizen::class, 'user_id');
     }
 }

@@ -42,7 +42,8 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
 
   useEffect(() => {
     if (show) {
-      const initialProfileType = user?.primary_citizen ? 'other' : 'self';
+      // This logic checks the old 'citizen' relationship, which is now correct again after our revert.
+      const initialProfileType = user?.citizen ? 'other' : 'self';
       setProfileType(initialProfileType);
       setError('');
     }
@@ -50,7 +51,6 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
 
   useEffect(() => {
     if (profileType === 'self' && user) {
-      // THE FIX IS HERE: Pre-fill the email and keep other fields empty.
       setForm({
         name: user.name || '',
         mobile: user.phone || '',
@@ -92,7 +92,7 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
 
-          {!user.primary_citizen && (
+          {!user.citizen && (
             <>
               <Form.Group className="mb-4">
                 <Form.Label as="legend" column sm={12}>Who is this profile for?</Form.Label>
@@ -106,10 +106,8 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
           )}
 
           <Row className="g-3">
-            {/* THE FIX IS HERE: The 'disabled' prop has been removed from Name and Mobile Number fields. */}
             <Col md={6}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => update('name', e.target.value)} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Mobile Number *</Form.Label><Form.Control value={form.mobile} onChange={e => update('mobile', e.target.value)} required /></Form.Group></Col>
-
             <Col md={6}><Form.Group><Form.Label>Email</Form.Label><Form.Control type="email" value={form.email} onChange={e => update('email', e.target.value)} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Birth Date</Form.Label><Form.Control type="date" value={form.dob} onChange={e => update('dob', e.target.value)} /></Form.Group></Col>
             <Col md={6}>
@@ -122,7 +120,6 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
               </Form.Group>
             </Col>
             <Col md={12}><Form.Group><Form.Label>Address</Form.Label><Form.Control as="textarea" rows={2} value={form.address} onChange={e => update('address', e.target.value)} /></Form.Group></Col>
-
             <Col md={6}>
               <Form.Group>
                 <Form.Label>State</Form.Label>
@@ -151,7 +148,6 @@ export default function CitizenFormModal({ show, onHide, onCreated }) {
                 )}
               </Form.Group>
             </Col>
-
           </Row>
         </Modal.Body>
         <Modal.Footer>

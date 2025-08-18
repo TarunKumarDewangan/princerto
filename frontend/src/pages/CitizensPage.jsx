@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react'; // Removed useMemo
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, Table, Badge, Alert, Pagination, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
@@ -6,8 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/apiClient';
 import CitizenFormModal from '../components/CitizenFormModal';
 
-// --- START OF THE FIX ---
-// This helper function was missing from this file.
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -21,22 +19,20 @@ const formatDate = (dateString) => {
     return '-';
   }
 };
-// --- END OF THE FIX ---
 
 export default function CitizensPage() {
   const { user } = useAuth();
-  const canCreate = useMemo(() => ['admin','manager', 'user'].includes(user?.role), [user]);
-  const isPrivilegedUser = useMemo(() => ['admin','manager'].includes(user?.role), [user]);
+
+  // THE FIX IS HERE: Replaced useMemo with a simple const. This is more stable.
+  const canCreate = ['admin', 'manager', 'user'].includes(user?.role);
 
   const [q, setQ] = useState('');
   const [mobile, setMobile] = useState('');
   const [perPage, setPerPage] = useState(10);
-
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-
   const [showCreate, setShowCreate] = useState(false);
 
   const fetchList = async (page = 1, showToasts = false) => {
@@ -48,7 +44,6 @@ export default function CitizensPage() {
       });
       setItems(data.data || []);
       setMeta(data.meta || null);
-
       if (showToasts) {
         const total = data?.meta?.total ?? (data?.data?.length || 0);
         toast.success(`Loaded ${total} record${total !== 1 ? 's' : ''}`);
@@ -64,37 +59,18 @@ export default function CitizensPage() {
 
   useEffect(() => { fetchList(1); }, []);
 
-  const onSearch = (e) => {
-    e.preventDefault();
-    fetchList(1, true);
-  };
-
-  const onCreated = () => {
-    toast.success('Citizen created');
-    fetchList(1);
-  };
-
-  const goPage = (p) => {
-    if (!meta) return;
-    if (p < 1 || p > meta.last_page) return;
-    fetchList(p);
-  };
-
-  const onReset = () => {
-    setQ('');
-    setMobile('');
-    fetchList(1, true);
-  };
+  const onSearch = (e) => { e.preventDefault(); fetchList(1, true); };
+  const onCreated = () => { toast.success('Citizen created'); fetchList(1); };
+  const goPage = (p) => { if (!meta || p < 1 || p > meta.last_page) return; fetchList(p); };
+  const onReset = () => { setQ(''); setMobile(''); fetchList(1, true); };
 
   const exportCsv = async () => {
     try {
       const params = new URLSearchParams();
       if (q) params.append('q', q);
       if (mobile) params.append('mobile', mobile);
-
       const url = `/citizens/export?${params.toString()}`;
       const { data } = await api.get(url, { responseType: 'blob' });
-
       const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -115,12 +91,8 @@ export default function CitizensPage() {
       <Row className="align-items-center mb-3">
         <Col><h3 className="mb-0">Citizen Profiles</h3></Col>
         <Col className="text-end">
-          <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>
-            Export CSV
-          </Button>
-          {canCreate && (
-            <Button onClick={() => setShowCreate(true)}>+ New Profile</Button>
-          )}
+          <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>Export CSV</Button>
+          {canCreate && (<Button onClick={() => setShowCreate(true)}>+ New Profile</Button>)}
         </Col>
       </Row>
 
@@ -150,19 +122,17 @@ export default function CitizensPage() {
               <th>DOB</th>
               <th>Address</th>
               <th>LL / DL / Veh</th>
-              {isPrivilegedUser && <th>Created By</th>}
             </tr>
           </thead>
           <tbody>
-            {loading && (<tr><td colSpan={isPrivilegedUser ? 7 : 6} className="text-center">Loading...</td></tr>)}
-            {!loading && items.length === 0 && (<tr><td colSpan={isPrivilegedUser ? 7 : 6} className="text-center">No records</td></tr>)}
+            {loading && (<tr><td colSpan={6} className="text-center">Loading...</td></tr>)}
+            {!loading && items.length === 0 && (<tr><td colSpan={6} className="text-center">No records</td></tr>)}
             {!loading && items.map((c, idx) => (
               <tr key={c.id}>
                 <td>{(meta?.from ?? 1) + idx}</td>
                 <td>
                   <div className="fw-semibold">
                     <Link to={`/citizens/${c.id}`} className="text-decoration-none">{c.name}</Link>
-                    {c.id === user?.primary_citizen?.id && <Badge bg="info" className="ms-2">Me</Badge>}
                   </div>
                   <div className="text-muted small">{c.relation_name || '-'}</div>
                 </td>
@@ -174,7 +144,6 @@ export default function CitizensPage() {
                   <Badge bg="light" text="dark" className="me-1">DL {c.driving_licenses_count ?? 0}</Badge>
                   <Badge bg="light" text="dark">Veh {c.vehicles_count ?? 0}</Badge>
                 </td>
-                {isPrivilegedUser && <td>{c.user?.name || 'N/A'}</td>}
               </tr>
             ))}
           </tbody>

@@ -12,17 +12,22 @@ export default function UpdateProfileModal({ show, onHide }) {
     dob: '',
     email: '',
     address: '',
+    phone: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (user) {
-      setForm(prev => ({
-        ...prev,
+      setForm({
         name: user.name || '',
         email: user.email || '',
-      }));
+        phone: user.phone || '',
+        // Load existing citizen data if available
+        father_name: user.primary_citizen?.father_name || '',
+        dob: (user.primary_citizen?.dob || '').substring(0, 10),
+        address: user.primary_citizen?.address || '',
+      });
     }
   }, [user, show]);
 
@@ -33,11 +38,14 @@ export default function UpdateProfileModal({ show, onHide }) {
     setSaving(true);
     setError('');
     try {
+      // THE FIX IS HERE: The entire form object is now sent.
+      // The backend will handle updating both User and Citizen models.
       await api.put('/me', form);
+
       toast.success('Profile updated successfully!');
-      loadMe();
+      loadMe(); // This will refresh the user data, and the popup won't show again
       onHide();
-    } catch (err) { // THE FIX IS HERE: Replaced the underscore with a curly brace.
+    } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to update profile.';
       setError(msg);
       toast.error(msg);
@@ -53,13 +61,14 @@ export default function UpdateProfileModal({ show, onHide }) {
           <Modal.Title>Complete Your Profile</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Please provide your details to continue. Date of Birth is mandatory.</p>
+          <p>Please provide your details to continue. Date of Birth and Mobile are mandatory.</p>
           {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-3">
             <Col md={12}><Form.Group><Form.Label>Full Name</Form.Label><Form.Control value={form.name} onChange={e => updateForm('name', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Father's Name</Form.Label><Form.Control value={form.father_name} onChange={e => updateForm('father_name', e.target.value)} /></Form.Group></Col>
-            <Col md={6}><Form.Group><Form.Label>Date of Birth *</Form.Label><Form.Control type="date" value={form.dob} onChange={e => updateForm('dob', e.target.value)} required /></Form.Group></Col>
+            <Col md={6}><Form.Group><Form.Label>Mobile Number *</Form.Label><Form.Control value={form.phone} onChange={e => updateForm('phone', e.target.value)} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Email</Form.Label><Form.Control type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} /></Form.Group></Col>
+            <Col md={6}><Form.Group><Form.Label>Father's Name</Form.Label><Form.Control value={form.father_name} onChange={e => updateForm('father_name', e.target.value)} /></Form.Group></Col>
+            <Col md={6}><Form.Group><Form.Label>Date of Birth *</Form.Label><Form.Control type="date" value={form.dob} onChange={e => updateForm('dob', e.target.value)} required /></Form.Group></Col>
             <Col md={12}><Form.Group><Form.Label>Address</Form.Label><Form.Control as="textarea" rows={2} value={form.address} onChange={e => updateForm('address', e.target.value)} /></Form.Group></Col>
           </Row>
         </Modal.Body>

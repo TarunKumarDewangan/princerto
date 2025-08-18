@@ -16,8 +16,8 @@ class ServiceRequest extends Model
      */
     protected $fillable = [
         'user_id',
-        'contact_name',   // THE FIX IS HERE
-        'contact_phone',  // THE FIX IS HERE
+        'contact_name',
+        'contact_phone',
         'category',
         'services',
         'query',

@@ -11,7 +11,9 @@ class ServiceRequestController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum');
+        // The 'store' method is now public.
+        // We only protect the routes that absolutely require a logged-in user.
+        $this->middleware('auth:sanctum')->only(['myRequests', 'index', 'updateStatus']);
         $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['index', 'updateStatus']);
     }
 
@@ -43,9 +45,12 @@ class ServiceRequestController extends Controller
         return $requests;
     }
 
+    /**
+     * Store a newly created resource in storage.
+     * This method is now PUBLIC and handles both authenticated and guest users.
+     */
     public function store(Request $request)
     {
-        // THE FIX IS HERE: Add validation for the new fields.
         $data = $request->validate([
             'contact_name' => 'required|string|max:255',
             'contact_phone' => 'required|string|max:20',
@@ -54,10 +59,13 @@ class ServiceRequestController extends Controller
             'query' => 'nullable|string',
         ]);
 
+        // Check if a user is authenticated via Sanctum.
+        $userId = auth('sanctum')->id(); // This will be the user's ID or null if they are a guest.
+
         $serviceRequest = ServiceRequest::create([
-            'user_id' => $request->user()->id,
-            'contact_name' => $data['contact_name'],     // And save them.
-            'contact_phone' => $data['contact_phone'],    // And save them.
+            'user_id' => $userId, // This can now safely be null.
+            'contact_name' => $data['contact_name'],
+            'contact_phone' => $data['contact_phone'],
             'category' => $data['category'],
             'services' => $data['services'] ?? [],
             'query' => $data['query'] ?? null,

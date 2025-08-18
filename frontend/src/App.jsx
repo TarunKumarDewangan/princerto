@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link } from 'react-router-dom';
 import { Container, Navbar, Nav, NavDropdown, Badge } from 'react-bootstrap';
 import PrivateRoute from './components/PrivateRoute';
 import HomePage from './pages/HomePage';
@@ -18,11 +18,11 @@ import AskForServicePage from './pages/AskForServicePage';
 import ServiceRequestsPage from './pages/ServiceRequestsPage';
 import MyRequestsPage from './pages/MyRequestsPage';
 import UpdateProfileModal from './components/UpdateProfileModal';
-import GlobalSearch from './components/GlobalSearch'; // Import the new search component
+import GlobalSearch from './components/GlobalSearch';
 import { useAuth } from './contexts/AuthContext';
 import ToastContainerGlobal from './components/ToastContainerGlobal';
 import './pages/HomePage.css';
-import './components/GlobalSearch.css'; // Import the new CSS
+import './components/GlobalSearch.css';
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();
@@ -42,7 +42,7 @@ function Shell({ children }) {
                 <>
                   <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
                   <Nav.Link as={Link} to="/citizens">Citizens</Nav.Link>
-                  {isUser && <Nav.Link as={Link} to="/ask-for-service">Ask For Service</Nav.Link>}
+                  <Nav.Link as={Link} to="/ask-for-service">Ask For Service</Nav.Link>
                   <NavDropdown title="Search">
                     <NavDropdown.Item as={Link} to="/search/ll">LL</NavDropdown.Item>
                     <NavDropdown.Item as={Link} to="/search/dl">DL</NavDropdown.Item>
@@ -58,11 +58,8 @@ function Shell({ children }) {
                 </>
               )}
             </Nav>
-
-            {/* START: Global Search and User Dropdown */}
             <Nav className="ms-auto d-flex align-items-center">
               {isAdminOrManager && <GlobalSearch />}
-
               {user && (
                 <NavDropdown title={user.name} id="basic-nav-dropdown" align="end" className="ms-2">
                   <NavDropdown.ItemText>
@@ -75,8 +72,6 @@ function Shell({ children }) {
                 </NavDropdown>
               )}
             </Nav>
-            {/* END: Global Search and User Dropdown */}
-
           </Navbar.Collapse>
         </Container>
       </Navbar>
@@ -89,28 +84,29 @@ function Shell({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Shell>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+    <Shell>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-          <Route path="/citizens" element={<PrivateRoute><CitizensPage /></PrivateRoute>} />
-          <Route path="/citizens/:id" element={<PrivateRoute><CitizenProfile /></PrivateRoute>} />
-          <Route path="/search/ll" element={<PrivateRoute><LLSearchPage /></PrivateRoute>} />
-          <Route path="/search/dl" element={<PrivateRoute><DLSearchPage /></PrivateRoute>} />
-          <Route path="/search/vehicle" element={<PrivateRoute><VehicleSearchPage /></PrivateRoute>} />
-          <Route path="/admin/users" element={<PrivateRoute roles={['admin']}><AdminUsersPage /></PrivateRoute>} />
-          <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/ask-for-service" element={<PrivateRoute><AskForServicePage /></PrivateRoute>} />
-          <Route path="/service-requests" element={<PrivateRoute roles={['admin', 'manager']}><ServiceRequestsPage /></PrivateRoute>} />
-          <Route path="/my-requests" element={<PrivateRoute><MyRequestsPage /></PrivateRoute>} />
-        </Routes>
-      </Shell>
-    </BrowserRouter>
+        {/* The /ask-for-service route is no longer wrapped in PrivateRoute */}
+        <Route path="/ask-for-service" element={<AskForServicePage />} />
+
+        {/* All other private routes remain the same */}
+        <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/citizens" element={<PrivateRoute><CitizensPage /></PrivateRoute>} />
+        <Route path="/citizens/:id" element={<PrivateRoute><CitizenProfile /></PrivateRoute>} />
+        <Route path="/search/ll" element={<PrivateRoute><LLSearchPage /></PrivateRoute>} />
+        <Route path="/search/dl" element={<PrivateRoute><DLSearchPage /></PrivateRoute>} />
+        <Route path="/search/vehicle" element={<PrivateRoute><VehicleSearchPage /></PrivateRoute>} />
+        <Route path="/admin/users" element={<PrivateRoute roles={['admin', 'manager']}><AdminUsersPage /></PrivateRoute>} />
+        <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/service-requests" element={<PrivateRoute roles={['admin', 'manager']}><ServiceRequestsPage /></PrivateRoute>} />
+        <Route path="/my-requests" element={<PrivateRoute><MyRequestsPage /></PrivateRoute>} />
+      </Routes>
+    </Shell>
   );
 }

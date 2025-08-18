@@ -7,9 +7,11 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
 use App\Models\User;
+use App\Models\Citizen;
 use App\Notifications\AdminPasswordResetNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 
@@ -18,7 +20,8 @@ class UserAdminController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        // Middleware is now handled in the routes file for more flexibility
+        // THE FIX IS HERE: The old middleware was removed.
+        // Permissions are now correctly handled in routes/api.php.
     }
 
     public function index(Request $request)
@@ -42,15 +45,30 @@ class UserAdminController extends Controller
     public function store(StoreUserRequest $request)
     {
         $data = $request->validated();
+        $adminUser = $request->user();
 
-        // THE FIX IS HERE: We now include the 'phone' number when creating the user.
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'] ?? null, // Ensure phone is included
-            'password' => Hash::make($data['password']),
-            'role' => $data['role'],
-        ]);
+        $user = DB::transaction(function () use ($data, $adminUser) {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'password' => Hash::make($data['password']),
+                'role' => $data['role'],
+            ]);
+
+            $citizen = Citizen::create([
+                'user_id' => $user->id,
+                'created_by_id' => $adminUser->id,
+                'name' => $user->name,
+                'mobile' => $user->phone,
+                'email' => $user->email,
+            ]);
+
+            $user->citizen_id = $citizen->id;
+            $user->save();
+
+            return $user;
+        });
 
         return response()->json($user, 201);
     }

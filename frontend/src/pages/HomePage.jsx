@@ -1,14 +1,13 @@
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import './HomePage.css'; // We will create this CSS file next for styling
+import './HomePage.css';
 
-// A reusable component for the service icon panels
 function ServicePanel({ title, to }) {
+  // The link now always points to the service page.
   return (
     <Link to={to} className="text-decoration-none">
       <Card className="service-panel text-center mb-4">
         <Card.Body>
-          {/* In a real app, you would have unique icons here */}
           <div className="icon-placeholder mb-2"></div>
           <Card.Text>{title}</Card.Text>
         </Card.Body>

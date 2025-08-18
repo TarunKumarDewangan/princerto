@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'; // New import
 import { useAuth } from '../contexts/AuthContext';
 import { Container, Row, Col, Form, Button, Alert, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
@@ -7,10 +7,11 @@ import { toast } from 'react-toastify';
 export default function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams(); // New hook to read URL parameters
+  const redirectTo = searchParams.get('redirect'); // Get the value of 'redirect'
 
-  // Use a generic state for the login identifier (can be phone or email)
-  const [loginId, setLoginId] = useState('admin@site.local'); // Default to admin for convenience
-  const [password, setPassword] = useState('Admin@123'); // Default to admin pass for convenience
+  const [loginId, setLoginId] = useState('admin@site.local');
+  const [password, setPassword] = useState('Admin@123');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,27 +19,20 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-
     try {
-      // Determine if the loginId is an email or a phone number
       const isEmail = loginId.includes('@');
-
-      // Construct the credentials object based on the input type
-      const credentials = {
-        password: password,
-      };
-
+      const credentials = { password };
       if (isEmail) {
         credentials.email = loginId;
       } else {
         credentials.phone = loginId;
       }
 
-      // The login function in AuthContext already handles sending this object
-      await login(credentials);
+      // THE FIX IS HERE: Pass the redirectTo path to the login function.
+      await login(credentials, redirectTo);
 
       toast.success('Welcome!');
-      nav('/');
+      // The navigation will now be handled by the AuthContext
     } catch (err) {
       const msg = err?.response?.data?.message || 'Login failed';
       setError(msg);
@@ -60,21 +54,11 @@ export default function LoginPage() {
               <Form onSubmit={onSubmit}>
                 <Form.Group className="mb-3">
                   <Form.Label>Mobile Number or Email</Form.Label>
-                  <Form.Control
-                    value={loginId}
-                    onChange={e => setLoginId(e.target.value)}
-                    type="text" // Use text type to allow both numbers and email characters
-                    required
-                  />
+                  <Form.Control value={loginId} onChange={e => setLoginId(e.target.value)} type="text" required />
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Password</Form.Label>
-                  <Form.Control
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    type="password"
-                    required
-                  />
+                  <Form.Control value={password} onChange={e => setPassword(e.target.value)} type="password" required />
                 </Form.Group>
                 <Button type="submit" className="w-100" disabled={submitting}>
                   {submitting ? 'Signing In...' : 'Sign In'}

@@ -27,11 +27,14 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/password/forgot', [PasswordResetController::class, 'requestLink']);
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
+// The route to create a service request is now public.
+Route::post('/service-requests', [ServiceRequestController::class, 'store']);
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return $request->user()->load('primaryCitizen:id,user_id,dob');
+        return $request->user()->load('primaryCitizen');
     });
 
     // Dashboard & Search
@@ -39,9 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->middleware(RoleMiddleware::class . ':admin,manager');
     Route::get('/global-search', [GlobalSearchController::class, 'search']);
 
-    // Service Requests
+    // Authenticated Service Request Routes
     Route::get('/service-requests', [ServiceRequestController::class, 'index']);
-    Route::post('/service-requests', [ServiceRequestController::class, 'store']);
     Route::get('/my-service-requests', [ServiceRequestController::class, 'myRequests']);
     Route::patch('/service-requests/{serviceRequest}/status', [ServiceRequestController::class, 'updateStatus']);
 
@@ -96,7 +98,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vehicles/{vehicle}/speed-governors', [VehicleSpeedGovernorController::class, 'storeForVehicle']);
 
     // Admin Section
-    // THE FIX IS HERE: We now allow both 'admin' and 'manager' roles to access this group.
     Route::prefix('admin')->middleware(RoleMiddleware::class . ':admin,manager')->group(function () {
         Route::get('/users', [UserAdminController::class, 'index']);
         Route::post('/users', [UserAdminController::class, 'store']);
