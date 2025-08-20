@@ -23,7 +23,8 @@ import { useAuth } from './contexts/AuthContext';
 import ToastContainerGlobal from './components/ToastContainerGlobal';
 import './pages/HomePage.css';
 import './components/GlobalSearch.css';
-import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage'; // --- START OF NEW CODE --- (1. Import the new page)
+import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage';
+import ExpiryReportPage from './pages/ExpiryReportPage'; // --- START OF NEW CODE --- (1. Import)
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();
@@ -48,6 +49,10 @@ function Shell({ children }) {
                     <NavDropdown.Item as={Link} to="/search/ll">LL</NavDropdown.Item>
                     <NavDropdown.Item as={Link} to="/search/dl">DL</NavDropdown.Item>
                     <NavDropdown.Item as={Link} to="/search/vehicle">Vehicle</NavDropdown.Item>
+                    {/* --- START OF NEW CODE --- (2. Add Nav Link) */}
+                    {isAdminOrManager && <NavDropdown.Divider />}
+                    {isAdminOrManager && <NavDropdown.Item as={Link} to="/reports/expiries">Expiry Report</NavDropdown.Item>}
+                    {/* --- END OF NEW CODE --- */}
                   </NavDropdown>
                   {isAdminOrManager && <Nav.Link as={Link} to="/service-requests">Service Requests</Nav.Link>}
                   {isAdmin && <Nav.Link as={Link} to="/admin/users">Admin</Nav.Link>}
@@ -95,11 +100,15 @@ export default function App() {
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/citizens" element={<PrivateRoute><CitizensPage /></PrivateRoute>} />
         <Route path="/citizens/:id" element={<PrivateRoute><CitizenProfile /></PrivateRoute>} />
-
-        {/* --- START OF NEW CODE --- (2. Add the new route) */}
         <Route
           path="/citizens/:id/expired"
           element={<PrivateRoute roles={['admin', 'manager']}><ExpiredDocumentsPage /></PrivateRoute>}
+        />
+
+        {/* --- START OF NEW CODE --- (3. Add Route) */}
+        <Route
+          path="/reports/expiries"
+          element={<PrivateRoute roles={['admin', 'manager']}><ExpiryReportPage /></PrivateRoute>}
         />
         {/* --- END OF NEW CODE --- */}
 
