@@ -27,7 +27,6 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/password/forgot', [PasswordResetController::class, 'requestLink']);
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
-// The route to create a service request is now public.
 Route::post('/service-requests', [ServiceRequestController::class, 'store']);
 
 
@@ -54,6 +53,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // All Details Route
     Route::get('/citizens/{citizen}/all-details', [CitizenController::class, 'getAllDetails']);
+    Route::post('/citizens/{citizen}/send-message', [CitizenController::class, 'sendMessage'])->middleware(RoleMiddleware::class . ':admin,manager');
+
+    // --- START OF NEW CODE ---
+    // Route for getting a list of expired documents for a citizen
+    Route::get('/citizens/{citizen}/expired-documents', [CitizenController::class, 'getExpiredDocuments'])
+        ->middleware(RoleMiddleware::class . ':admin,manager');
+    // --- END OF NEW CODE ---
 
     // Core Resources
     Route::resource('citizens', CitizenController::class)->except(['create', 'edit']);

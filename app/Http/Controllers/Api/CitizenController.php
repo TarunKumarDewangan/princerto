@@ -7,6 +7,8 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Http\Requests\StoreCitizenRequest;
 use App\Http\Requests\UpdateCitizenRequest;
 use App\Models\Citizen;
+use App\Services\WhatsAppService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -25,11 +27,9 @@ class CitizenController extends Controller
         $per = (int) ($request->query('per_page', 10));
         $authUser = $request->user();
 
-        // REVERTED: Stable query logic that uses the 'user' relationship.
         $query = Citizen::query()
-            ->with('user:id,name') // We now get the creator from the user_id link
+            ->with('user:id,name')
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
-                // Regular users can only see profiles they have created.
                 $b->where('user_id', $authUser->id);
             })
             ->when($q !== '', function (Builder $b) use ($q) {
@@ -50,18 +50,12 @@ class CitizenController extends Controller
     {
         $data = $request->validated();
         $loggedInUser = $request->user();
-
-        // REVERTED: This now correctly sets the creator as the logged-in user.
         $data['user_id'] = $loggedInUser->id;
-
         $citizen = Citizen::create($data);
-
-        // This logic is for the "Myself" profile creation scenario
         if ($request->input('is_self') === true && !$loggedInUser->citizen_id) {
             $loggedInUser->citizen_id = $citizen->id;
             $loggedInUser->save();
         }
-
         return response()->json($citizen, 201);
     }
 
@@ -71,7 +65,6 @@ class CitizenController extends Controller
         if ($authUser->role === 'user' && $citizen->user_id !== $authUser->id) {
             abort(403, 'This action is unauthorized.');
         }
-
         $citizen->load(['learnerLicenses', 'drivingLicenses', 'vehicles']);
         return $citizen;
     }
@@ -82,7 +75,6 @@ class CitizenController extends Controller
         if ($authUser->role === 'user' && $citizen->user_id !== $authUser->id) {
             abort(403, 'This action is unauthorized.');
         }
-
         $citizen->load(['learnerLicenses', 'drivingLicenses', 'vehicles.insurances', 'vehicles.puccs', 'vehicles.fitnesses', 'vehicles.permits', 'vehicles.vltds', 'vehicles.speedGovernors', 'vehicles.taxes']);
         return $citizen;
     }
@@ -97,5 +89,96 @@ class CitizenController extends Controller
     {
         $citizen->delete();
         return response()->json(['message' => 'Deleted']);
+    }
+
+    public function sendMessage(Request $request, Citizen $citizen, WhatsAppService $whatsAppService)
+    {
+        $data = $request->validate([
+            'message' => 'required|string|min:1|max:1000',
+        ]);
+
+        if (!$citizen->mobile) {
+            return response()->json(['message' => 'This citizen does not have a mobile number on file.'], 422);
+        }
+
+        $phoneNumber = '91' . $citizen->mobile;
+        $message = $data['message'];
+        $success = $whatsAppService->sendTextMessage($phoneNumber, $message);
+
+        if ($success) {
+            return response()->json(['message' => 'Message sent successfully to ' . $citizen->mobile]);
+        } else {
+            return response()->json(['message' => 'Failed to send message. Please check the server logs.'], 500);
+        }
+    }
+
+    /**
+     * Get a list of all expired documents for a specific citizen.
+     */
+    public function getExpiredDocuments(Citizen $citizen)
+    {
+        $today = Carbon::today();
+        $expiredDocuments = [];
+
+        // Check Learner Licenses
+        $citizen->learnerLicenses()->whereDate('expiry_date', '<', $today)->get()->each(function ($ll) use (&$expiredDocuments) {
+            $expiredDocuments[] = [
+                'type' => 'Learner License',
+                'identifier' => $ll->ll_no,
+                'expiry_date' => $ll->expiry_date->format('d-m-Y'),
+                'details' => "Office: {$ll->office}",
+            ];
+        });
+
+        // Check Driving Licenses
+        $citizen->drivingLicenses()->whereDate('expiry_date', '<', $today)->get()->each(function ($dl) use (&$expiredDocuments) {
+            $expiredDocuments[] = [
+                'type' => 'Driving License',
+                'identifier' => $dl->dl_no,
+                'expiry_date' => $dl->expiry_date->format('d-m-Y'),
+                'details' => "Vehicle Class: {$dl->vehicle_class}",
+            ];
+        });
+
+        // --- START OF FIX ---
+        // 1. Load ALL relationships needed for checking.
+        $citizen->vehicles()->with(['insurances', 'puccs', 'fitnesses', 'taxes', 'permits', 'vltds', 'speedGovernors'])->get()->each(function ($vehicle) use (&$expiredDocuments, $today) {
+            $regNo = $vehicle->registration_no;
+
+            $vehicle->insurances()->whereDate('end_date', '<', $today)->get()->each(function ($ins) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'Insurance', 'identifier' => $regNo, 'expiry_date' => $ins->end_date->format('d-m-Y'), 'details' => "Policy: {$ins->policy_number}"];
+            });
+
+            $vehicle->puccs()->whereDate('valid_until', '<', $today)->get()->each(function ($pucc) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'PUCC', 'identifier' => $regNo, 'expiry_date' => $pucc->valid_until->format('d-m-Y'), 'details' => "Certificate: {$pucc->pucc_number}"];
+            });
+
+            $vehicle->fitnesses()->whereDate('expiry_date', '<', $today)->get()->each(function ($fit) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'Fitness', 'identifier' => $regNo, 'expiry_date' => $fit->expiry_date->format('d-m-Y'), 'details' => "Certificate: {$fit->certificate_number}"];
+            });
+
+            // 2. Add the missing checks for the other document types.
+            $vehicle->taxes()->whereDate('tax_upto', '<', $today)->get()->each(function ($tax) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'Tax', 'identifier' => $regNo, 'expiry_date' => $tax->tax_upto->format('d-m-Y'), 'details' => "Mode: {$tax->tax_mode}"];
+            });
+
+            $vehicle->permits()->whereDate('expiry_date', '<', $today)->get()->each(function ($permit) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'Permit', 'identifier' => $regNo, 'expiry_date' => $permit->expiry_date->format('d-m-Y'), 'details' => "Permit No: {$permit->permit_number}"];
+            });
+
+            $vehicle->vltds()->whereDate('expiry_date', '<', $today)->get()->each(function ($vltd) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'VLTd', 'identifier' => $regNo, 'expiry_date' => $vltd->expiry_date->format('d-m-Y'), 'details' => "Certificate: {$vltd->certificate_number}"];
+            });
+
+            $vehicle->speedGovernors()->whereDate('expiry_date', '<', $today)->get()->each(function ($sg) use (&$expiredDocuments, $regNo) {
+                $expiredDocuments[] = ['type' => 'Speed Governor', 'identifier' => $regNo, 'expiry_date' => $sg->expiry_date->format('d-m-Y'), 'details' => "Certificate: {$sg->certificate_number}"];
+            });
+        });
+        // --- END OF FIX ---
+
+        return response()->json([
+            'citizen' => $citizen,
+            'expired_documents' => $expiredDocuments,
+        ]);
     }
 }

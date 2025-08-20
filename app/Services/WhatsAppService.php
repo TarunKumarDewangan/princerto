@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class WhatsAppService
+{
+    protected string $apiKey;
+    protected string $apiEndpoint;
+
+    public function __construct()
+    {
+        $host = config('services.conic.host');
+        $this->apiKey = config('services.conic.key');
+        $this->apiEndpoint = "https://{$host}/wapp/api/send/json";
+    }
+
+    /**
+     * Sends a plain text message via the Conic Solution JSON API.
+     *
+     * @param string $phoneNumber The recipient's 12-digit phone number (e.g., 919876543210)
+     * @param string $message The text message to send.
+     * @return bool True on success, false on failure.
+     */
+    public function sendTextMessage(string $phoneNumber, string $message): bool
+    {
+        if (!$this->apiKey || !config('services.conic.host')) {
+            Log::error('Conic Solution WhatsApp API credentials are not configured.');
+            return false;
+        }
+
+        try {
+            // This structure matches the "SEND WAPP JSON" documentation
+            $response = Http::withHeaders([
+                'X-API-KEY' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post($this->apiEndpoint, [
+                'mobile' => $phoneNumber,
+                'msg' => $message,
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful() && isset($responseData['status']) && $responseData['status'] !== 'ERROR') {
+                Log::info("Successfully sent WhatsApp notification to {$phoneNumber}.", $responseData);
+                return true;
+            } else {
+                Log::error("Failed to send WhatsApp notification to {$phoneNumber}. Status: " . $response->status(), $responseData);
+                return false;
+            }
+        } catch (\Exception $e) {
+            Log::error("Exception while sending WhatsApp notification: " . $e->getMessage());
+            return false;
+        }
+    }
+}

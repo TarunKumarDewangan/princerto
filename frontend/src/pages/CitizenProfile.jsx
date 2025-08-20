@@ -24,6 +24,7 @@ import VehiclePermitEditModal from '../components/VehiclePermitEditModal';
 import VehicleSpeedGovernorModal from '../components/VehicleSpeedGovernorModal';
 import VehicleSpeedGovernorEditModal from '../components/VehicleSpeedGovernorEditModal';
 import { toast } from 'react-toastify';
+import SendMessageModal from '../components/SendMessageModal';
 
 const formatDate = (dateString) => {
   if (!dateString) return '-';
@@ -56,6 +57,11 @@ export default function CitizenProfile() {
   const [loadingAllDetails, setLoadingAllDetails] = useState(false);
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('all');
+
+  const [showSendMessage, setShowSendMessage] = useState(false);
+  const [messagingCitizen, setMessagingCitizen] = useState(null);
+
+  const [sendingNoticeId, setSendingNoticeId] = useState(null);
 
   const [showLL, setShowLL] = useState(false);
   const [showDL, setShowDL] = useState(false);
@@ -135,6 +141,31 @@ export default function CitizenProfile() {
     }
   };
 
+  const handleShowSendMessage = (citizenRecord) => {
+    setMessagingCitizen(citizenRecord);
+    setShowSendMessage(true);
+  };
+
+  const handleSendLLNotice = async (llRecord) => {
+    if (!citizen) return;
+
+    if (window.confirm(`Send an expiry notification to ${citizen.name} for LL No ${llRecord.ll_no}?`)) {
+      setSendingNoticeId(llRecord.id);
+      try {
+        const message = `Your LLNO ${llRecord.ll_no} Expiring/Expired on date ${formatDate(llRecord.expiry_date)} contact harshit-online for further process`;
+
+        await api.post(`/citizens/${citizen.id}/send-message`, { message });
+
+        toast.success(`Expiry notification sent for LL No ${llRecord.ll_no}.`);
+      } catch (err) {
+        const msg = err?.response?.data?.message || 'Failed to send notification.';
+        toast.error(msg);
+      } finally {
+        setSendingNoticeId(null);
+      }
+    }
+  };
+
   const deleteCitizen = async () => { if (!isAdmin) return; if (window.confirm('Delete this citizen and all related records?')) { try { await api.delete(`/citizens/${id}`); toast.success('Citizen deleted'); nav('/citizens'); } catch (e) { toast.error(e?.response?.data?.message || 'Delete failed'); } } };
   const handleLLEdit = (record) => { setEditingLL(record); setShowLLEdit(true); };
   const handleLLDelete = async (recordId) => { if (window.confirm('Delete this Learner License record?')) { try { await api.delete(`/ll/${recordId}`); toast.success('Record deleted.'); loadPageData(); refreshAllDetails(); } catch (e) { toast.error(e?.response?.data?.message || 'Delete failed.'); } } };
@@ -164,7 +195,19 @@ export default function CitizenProfile() {
 
   return (
     <Container className="py-4">
-      <Row className="mb-3 align-items-center"><Col><Link to="/citizens" className="text-decoration-none">&larr; Back to list</Link></Col><Col className="text-end">{canWrite && <Button size="sm" className="me-2" onClick={()=>setShowEdit(true)}>Edit</Button>}{isAdmin && <Button size="sm" variant="outline-danger" onClick={deleteCitizen}>Delete</Button>}</Col></Row>
+      <Row className="mb-3 align-items-center">
+        <Col><Link to="/citizens" className="text-decoration-none">&larr; Back to list</Link></Col>
+        <Col className="text-end">
+          {/* --- START OF NEW CODE --- */}
+          <Button as={Link} to={`/citizens/${id}/expired`} size="sm" variant="outline-warning" className="me-2">
+            Check Expiries
+          </Button>
+          {/* --- END OF NEW CODE --- */}
+          {canWrite && <Button size="sm" variant="outline-success" className="me-2" onClick={() => handleShowSendMessage(citizen)}>Send Message</Button>}
+          {canWrite && <Button size="sm" className="me-2" onClick={()=>setShowEdit(true)}>Edit</Button>}
+          {isAdmin && <Button size="sm" variant="outline-danger" onClick={deleteCitizen}>Delete</Button>}
+        </Col>
+      </Row>
       <Card className="mb-3">
         <Card.Body>
           <Row>
@@ -182,7 +225,43 @@ export default function CitizenProfile() {
       </Card>
 
       <Tabs activeKey={activeTab} onSelect={handleTabSelect} className="mb-3">
-        <Tab eventKey="ll" title="Learner Licenses"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">LL Records</div>{canWrite && <Button size="sm" onClick={()=>setShowLL(true)}>+ Add LL</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>LL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th>{canWrite && <th>Actions</th>}</tr></thead><tbody>{ll.data.length > 0 ? ( ll.data.map((r, i) => ( <tr key={r.id}><td>{(ll.meta?.from ?? 1) + i}</td><td>{r.ll_no}</td><td>{r.application_no || '-'}</td><td>{formatDate(r.issue_date)}</td><td>{formatDate(r.expiry_date)}</td><td>{r.vehicle_class || '-'}</td><td>{r.office || '-'}</td>{canWrite && (<td><Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleLLEdit(r)}>Edit</Button><Button size="sm" variant="outline-danger" onClick={() => handleLLDelete(r.id)}>Delete</Button></td>)}</tr>))) : (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
+        <Tab eventKey="ll" title="Learner Licenses">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="fw-semibold">LL Records</div>
+            {canWrite && <Button size="sm" onClick={()=>setShowLL(true)}>+ Add LL</Button>}
+          </div>
+          <div className="table-responsive">
+            <Table bordered hover size="sm">
+              <thead>
+                <tr><th>#</th><th>LL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th>{canWrite && <th>Actions</th>}</tr>
+              </thead>
+              <tbody>
+                {ll.data.length > 0 ? ( ll.data.map((r, i) => (
+                  <tr key={r.id}>
+                    <td>{(ll.meta?.from ?? 1) + i}</td>
+                    <td>{r.ll_no}</td>
+                    <td>{r.application_no || '-'}</td>
+                    <td>{formatDate(r.issue_date)}</td>
+                    <td>{formatDate(r.expiry_date)}</td>
+                    <td>{r.vehicle_class || '-'}</td>
+                    <td>{r.office || '-'}</td>
+                    {canWrite && (
+                      <td>
+                        <Button size="sm" variant="outline-info" className="me-1" disabled={sendingNoticeId === r.id} onClick={() => handleSendLLNotice(r)}>
+                          {sendingNoticeId === r.id ? 'Sending...' : 'Notify'}
+                        </Button>
+                        <Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleLLEdit(r)}>Edit</Button>
+                        <Button size="sm" variant="outline-danger" onClick={() => handleLLDelete(r.id)}>Delete</Button>
+                      </td>
+                    )}
+                  </tr>
+                ))) : (
+                  <tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        </Tab>
         <Tab eventKey="dl" title="Driving Licenses"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">DL Records</div>{canWrite && <Button size="sm" onClick={()=>setShowDL(true)}>+ Add DL</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>DL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th>{canWrite && <th>Actions</th>}</tr></thead><tbody>{dl.data.length > 0 ? ( dl.data.map((r, i) => ( <tr key={r.id}><td>{(dl.meta?.from ?? 1) + i}</td><td>{r.dl_no}</td><td>{r.application_no || '-'}</td><td>{formatDate(r.issue_date)}</td><td>{formatDate(r.expiry_date)}</td><td>{r.vehicle_class || '-'}</td><td>{r.office || '-'}</td>{canWrite && (<td><Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleDLEdit(r)}>Edit</Button><Button size="sm" variant="outline-danger" onClick={() => handleDLDelete(r.id)}>Delete</Button></td>)}</tr>))) : (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
         <Tab eventKey="veh" title="Vehicles"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">Vehicle Records</div>{canWrite && <Button size="sm" onClick={()=>setShowVeh(true)}>+ Add Vehicle</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>Registration</th><th>Type</th><th>Make/Model</th><th>Chassis</th><th>Engine</th><th>Actions</th></tr></thead><tbody>{veh.data.length > 0 ? ( veh.data.map((r, i) => ( <tr key={r.id}><td>{(veh.meta?.from ?? 1) + i}</td><td>{r.registration_no}</td><td>{r.type || '-'}</td><td>{r.make_model || '-'}</td><td>{r.chassis_no || '-'}</td><td>{r.engine_no || '-'}</td><td><div className="d-flex flex-wrap"><Button size="sm" variant="outline-dark" className="me-1 mb-1" onClick={()=>{ setTaxVehicle(r); setShowTax(true); }}>Taxes</Button><Button size="sm" variant="outline-info" className="me-1 mb-1" onClick={() => handleShowInsurance(r)}>Insurance</Button><Button size="sm" variant="outline-success" className="me-1 mb-1" onClick={() => handleShowPucc(r)}>PUCC</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowFitness(r)}>Fitness</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowVltd(r)}>VLT a</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowPermit(r)}>Permit</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowSpeedGovernor(r)}>Speed Gov.</Button>{canWrite && <Button size="sm" variant="outline-primary" className="me-1 mb-1" onClick={() => handleVehEdit(r)}>Edit</Button>}{canWrite && <Button size="sm" variant="outline-danger" className="mb-1" onClick={() => handleVehDelete(r.id)}>Delete</Button>}</div></td></tr>))) : (<tr><td colSpan={7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
 
@@ -217,6 +296,12 @@ export default function CitizenProfile() {
           )}
         </Tab>
       </Tabs>
+
+      <SendMessageModal
+        show={showSendMessage}
+        onHide={() => setShowSendMessage(false)}
+        citizen={messagingCitizen}
+      />
 
       <CitizenEditModal show={showEdit} onHide={()=>setShowEdit(false)} citizen={citizen} onUpdated={() => { loadPageData(); refreshAllDetails(); }} />
       <LLEditModal show={showLLEdit} onHide={()=>setShowLLEdit(false)} llRecord={editingLL} onUpdated={() => { setShowLLEdit(false); loadPageData(); refreshAllDetails(); }} />

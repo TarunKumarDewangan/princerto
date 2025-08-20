@@ -23,6 +23,7 @@ import { useAuth } from './contexts/AuthContext';
 import ToastContainerGlobal from './components/ToastContainerGlobal';
 import './pages/HomePage.css';
 import './components/GlobalSearch.css';
+import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage'; // --- START OF NEW CODE --- (1. Import the new page)
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();
@@ -89,14 +90,19 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
-        {/* The /ask-for-service route is no longer wrapped in PrivateRoute */}
         <Route path="/ask-for-service" element={<AskForServicePage />} />
 
-        {/* All other private routes remain the same */}
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/citizens" element={<PrivateRoute><CitizensPage /></PrivateRoute>} />
         <Route path="/citizens/:id" element={<PrivateRoute><CitizenProfile /></PrivateRoute>} />
+
+        {/* --- START OF NEW CODE --- (2. Add the new route) */}
+        <Route
+          path="/citizens/:id/expired"
+          element={<PrivateRoute roles={['admin', 'manager']}><ExpiredDocumentsPage /></PrivateRoute>}
+        />
+        {/* --- END OF NEW CODE --- */}
+
         <Route path="/search/ll" element={<PrivateRoute><LLSearchPage /></PrivateRoute>} />
         <Route path="/search/dl" element={<PrivateRoute><DLSearchPage /></PrivateRoute>} />
         <Route path="/search/vehicle" element={<PrivateRoute><VehicleSearchPage /></PrivateRoute>} />
