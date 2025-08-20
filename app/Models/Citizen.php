@@ -10,7 +10,6 @@ class Citizen extends Model
 {
     use HasFactory;
 
-    // REVERTED: 'created_by_id' is removed from the fillable array.
     protected $fillable = [
         'user_id',
         'name',
@@ -35,13 +34,22 @@ class Citizen extends Model
         return null;
     }
 
-    // This relationship links a citizen profile to its OWNER (if they have a login)
+    // This relationship links a citizen profile to the USER who created it.
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // REVERTED: The 'creator' relationship has been removed.
+    // --- START OF NEW CODE ---
+    /**
+     * Check if this Citizen profile is the primary profile for a User.
+     * The relationship will exist (not be null) if it is.
+     */
+    public function isPrimaryProfileForUser()
+    {
+        return $this->hasOne(User::class, 'citizen_id');
+    }
+    // --- END OF NEW CODE ---
 
     public function learnerLicenses()
     {

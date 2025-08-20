@@ -21,12 +21,14 @@ use App\Http\Controllers\Api\VehicleVltdController;
 use App\Http\Controllers\Api\VehiclePermitController;
 use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\Api\ExpiryReportController; // --- START OF NEW CODE --- (Import new controller)
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/password/forgot', [PasswordResetController::class, 'requestLink']);
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
+// The route to create a service request is now public.
 Route::post('/service-requests', [ServiceRequestController::class, 'store']);
 
 
@@ -41,6 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->middleware(RoleMiddleware::class . ':admin,manager');
     Route::get('/global-search', [GlobalSearchController::class, 'search']);
 
+    // --- START OF NEW CODE ---
+    // Route for the new Expiry Report page
+    Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])
+        ->middleware(RoleMiddleware::class . ':admin,manager');
+    // --- END OF NEW CODE ---
+
     // Authenticated Service Request Routes
     Route::get('/service-requests', [ServiceRequestController::class, 'index']);
     Route::get('/my-service-requests', [ServiceRequestController::class, 'myRequests']);
@@ -51,15 +59,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me/password', [ProfileController::class, 'changePassword']);
     Route::put('/me/phone', [ProfileController::class, 'changePhone']);
 
-    // All Details Route
+    // Citizen Routes
     Route::get('/citizens/{citizen}/all-details', [CitizenController::class, 'getAllDetails']);
     Route::post('/citizens/{citizen}/send-message', [CitizenController::class, 'sendMessage'])->middleware(RoleMiddleware::class . ':admin,manager');
-
-    // --- START OF NEW CODE ---
-    // Route for getting a list of expired documents for a citizen
-    Route::get('/citizens/{citizen}/expired-documents', [CitizenController::class, 'getExpiredDocuments'])
-        ->middleware(RoleMiddleware::class . ':admin,manager');
-    // --- END OF NEW CODE ---
+    Route::get('/citizens/{citizen}/expired-documents', [CitizenController::class, 'getExpiredDocuments'])->middleware(RoleMiddleware::class . ':admin,manager');
 
     // Core Resources
     Route::resource('citizens', CitizenController::class)->except(['create', 'edit']);

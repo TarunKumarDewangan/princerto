@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'; // Removed useMemo
+import { useEffect, useState, useMemo } from 'react'; // Import useMemo
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, Table, Badge, Alert, Pagination, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/apiClient';
 import CitizenFormModal from '../components/CitizenFormModal';
+import CitizenEditModal from '../components/CitizenEditModal'; // --- START OF NEW CODE --- (1. Import Modal)
 
 const formatDate = (dateString) => {
   if (!dateString) return '-';
@@ -23,8 +24,10 @@ const formatDate = (dateString) => {
 export default function CitizensPage() {
   const { user } = useAuth();
 
-  // THE FIX IS HERE: Replaced useMemo with a simple const. This is more stable.
-  const canCreate = ['admin', 'manager', 'user'].includes(user?.role);
+  // --- START OF NEW CODE --- (2. Define role-based permissions)
+  const canWrite = useMemo(() => user && ['admin', 'manager'].includes(user.role), [user]);
+  const isAdmin = useMemo(() => user?.role === 'admin', [user]);
+  // --- END OF NEW CODE ---
 
   const [q, setQ] = useState('');
   const [mobile, setMobile] = useState('');
@@ -34,6 +37,11 @@ export default function CitizensPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+
+  // --- START OF NEW CODE --- (3. Add state for editing)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCitizen, setEditingCitizen] = useState(null);
+  // --- END OF NEW CODE ---
 
   const fetchList = async (page = 1, showToasts = false) => {
     setLoading(true);
@@ -59,10 +67,33 @@ export default function CitizensPage() {
 
   useEffect(() => { fetchList(1); }, []);
 
-  const onSearch = (e) => { e.preventDefault(); fetchList(1, true); };
   const onCreated = () => { toast.success('Citizen created'); fetchList(1); };
   const goPage = (p) => { if (!meta || p < 1 || p > meta.last_page) return; fetchList(p); };
   const onReset = () => { setQ(''); setMobile(''); fetchList(1, true); };
+
+  // --- START OF NEW CODE --- (4. Add handlers for Edit and Delete)
+  const handleEdit = (citizen) => {
+    setEditingCitizen(citizen);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (citizen) => {
+    if (window.confirm(`Are you sure you want to delete the profile for '${citizen.name}'? This cannot be undone.`)) {
+      try {
+        await api.delete(`/citizens/${citizen.id}`);
+        toast.success('Citizen profile deleted.');
+        fetchList(meta?.current_page || 1); // Refresh list
+      } catch (e) {
+        toast.error(e?.response?.data?.message || 'Delete failed.');
+      }
+    }
+  };
+
+  const onUpdated = () => {
+    toast.success('Citizen updated successfully.');
+    fetchList(meta?.current_page || 1);
+  };
+  // --- END OF NEW CODE ---
 
   const exportCsv = async () => {
     try {
@@ -92,13 +123,13 @@ export default function CitizensPage() {
         <Col><h3 className="mb-0">Citizen Profiles</h3></Col>
         <Col className="text-end">
           <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>Export CSV</Button>
-          {canCreate && (<Button onClick={() => setShowCreate(true)}>+ New Profile</Button>)}
+          <Button onClick={() => setShowCreate(true)}>+ New Profile</Button>
         </Col>
       </Row>
 
       <Card className="mb-3">
         <Card.Body>
-          <Form onSubmit={onSearch}>
+          <Form onSubmit={(e) => { e.preventDefault(); fetchList(1, true); }}>
             <Row className="g-2">
               <Col md={4}><Form.Control placeholder="Search name / father / email" value={q} onChange={e => setQ(e.target.value)} /></Col>
               <Col md={3}><Form.Control placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Col>
@@ -118,15 +149,19 @@ export default function CitizensPage() {
             <tr>
               <th>#</th>
               <th>Name / Father</th>
+              <th>Profile Type</th>
               <th>Mobile / Email</th>
               <th>DOB</th>
               <th>Address</th>
               <th>LL / DL / Veh</th>
+              {/* --- START OF NEW CODE --- (5. Add Actions column header) */}
+              {canWrite && <th>Actions</th>}
+              {/* --- END OF NEW CODE --- */}
             </tr>
           </thead>
           <tbody>
-            {loading && (<tr><td colSpan={6} className="text-center">Loading...</td></tr>)}
-            {!loading && items.length === 0 && (<tr><td colSpan={6} className="text-center">No records</td></tr>)}
+            {loading && (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">Loading...</td></tr>)}
+            {!loading && items.length === 0 && (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>)}
             {!loading && items.map((c, idx) => (
               <tr key={c.id}>
                 <td>{(meta?.from ?? 1) + idx}</td>
@@ -136,6 +171,16 @@ export default function CitizensPage() {
                   </div>
                   <div className="text-muted small">{c.relation_name || '-'}</div>
                 </td>
+                <td>
+                  {c.is_primary_profile_for_user ? (
+                    <Badge bg="success">User</Badge>
+                  ) : (
+                    <div>
+                      <Badge bg="secondary">Citizen</Badge>
+                      <div className="text-muted small">By: {c.user?.name || 'N/A'}</div>
+                    </div>
+                  )}
+                </td>
                 <td><div>{c.mobile}</div><div className="text-muted small">{c.email || '-'}</div></td>
                 <td>{formatDate(c.dob)}</td>
                 <td className="small">{c.address || '-'}</td>
@@ -144,6 +189,16 @@ export default function CitizensPage() {
                   <Badge bg="light" text="dark" className="me-1">DL {c.driving_licenses_count ?? 0}</Badge>
                   <Badge bg="light" text="dark">Veh {c.vehicles_count ?? 0}</Badge>
                 </td>
+                {/* --- START OF NEW CODE --- (6. Add Actions buttons) */}
+                {canWrite && (
+                  <td>
+                    <Button variant="outline-primary" size="sm" className="me-1" onClick={() => handleEdit(c)}>Edit</Button>
+                    {isAdmin && (
+                      <Button variant="outline-danger" size="sm" onClick={() => handleDelete(c)}>Delete</Button>
+                    )}
+                  </td>
+                )}
+                {/* --- END OF NEW CODE --- */}
               </tr>
             ))}
           </tbody>
@@ -162,6 +217,18 @@ export default function CitizensPage() {
       )}
 
       <CitizenFormModal show={showCreate} onHide={() => setShowCreate(false)} onCreated={onCreated} />
+
+      {/* --- START OF NEW CODE --- (7. Render Edit Modal) */}
+      <CitizenEditModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        citizen={editingCitizen}
+        onUpdated={() => {
+          setShowEditModal(false);
+          onUpdated();
+        }}
+      />
+      {/* --- END OF NEW CODE --- */}
     </Container>
   );
 }

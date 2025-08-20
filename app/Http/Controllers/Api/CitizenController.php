@@ -7,10 +7,13 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Http\Requests\StoreCitizenRequest;
 use App\Http\Requests\UpdateCitizenRequest;
 use App\Models\Citizen;
+use App\Models\User;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
 
 class CitizenController extends Controller
 {
@@ -28,7 +31,7 @@ class CitizenController extends Controller
         $authUser = $request->user();
 
         $query = Citizen::query()
-            ->with('user:id,name')
+            ->with(['user:id,name', 'isPrimaryProfileForUser:id,citizen_id'])
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
                 $b->where('user_id', $authUser->id);
             })
@@ -79,11 +82,45 @@ class CitizenController extends Controller
         return $citizen;
     }
 
+    // --- START OF MODIFIED CODE ---
     public function update(UpdateCitizenRequest $request, Citizen $citizen)
     {
-        $citizen->update($request->validated());
+        $validatedData = $request->validated();
+
+        DB::transaction(function () use ($citizen, $validatedData) {
+            // Step 1: Always update the citizen record.
+            $citizen->update($validatedData);
+
+            // Step 2: Find the User who has this citizen as their primary profile.
+            $user = User::where('citizen_id', $citizen->id)->first();
+
+            // Step 3: If a linked user exists, sync their details intelligently.
+            if ($user) {
+                $user->name = $validatedData['name'] ?? $user->name;
+                $user->email = $validatedData['email'] ?? $user->email;
+
+                // ** THE SMART SYNC LOGIC IS HERE **
+                // Only update the user's login phone if the new number is not
+                // already in use by another user account.
+                if (isset($validatedData['mobile'])) {
+                    $isPhoneTakenByAnotherUser = User::where('phone', $validatedData['mobile'])
+                        ->where('id', '!=', $user->id)
+                        ->exists();
+
+                    if (!$isPhoneTakenByAnotherUser) {
+                        $user->phone = $validatedData['mobile'];
+                    }
+                    // If the phone is taken, we simply do nothing, avoiding the error.
+                    // The citizen's mobile contact number is already updated above.
+                }
+
+                $user->save();
+            }
+        });
+
         return $citizen->fresh();
     }
+    // --- END OF MODIFIED CODE ---
 
     public function destroy(Citizen $citizen)
     {
@@ -112,36 +149,19 @@ class CitizenController extends Controller
         }
     }
 
-    /**
-     * Get a list of all expired documents for a specific citizen.
-     */
     public function getExpiredDocuments(Citizen $citizen)
     {
         $today = Carbon::today();
         $expiredDocuments = [];
 
-        // Check Learner Licenses
         $citizen->learnerLicenses()->whereDate('expiry_date', '<', $today)->get()->each(function ($ll) use (&$expiredDocuments) {
-            $expiredDocuments[] = [
-                'type' => 'Learner License',
-                'identifier' => $ll->ll_no,
-                'expiry_date' => $ll->expiry_date->format('d-m-Y'),
-                'details' => "Office: {$ll->office}",
-            ];
+            $expiredDocuments[] = ['type' => 'Learner License', 'identifier' => $ll->ll_no, 'expiry_date' => $ll->expiry_date->format('d-m-Y'), 'details' => "Office: {$ll->office}"];
         });
 
-        // Check Driving Licenses
         $citizen->drivingLicenses()->whereDate('expiry_date', '<', $today)->get()->each(function ($dl) use (&$expiredDocuments) {
-            $expiredDocuments[] = [
-                'type' => 'Driving License',
-                'identifier' => $dl->dl_no,
-                'expiry_date' => $dl->expiry_date->format('d-m-Y'),
-                'details' => "Vehicle Class: {$dl->vehicle_class}",
-            ];
+            $expiredDocuments[] = ['type' => 'Driving License', 'identifier' => $dl->dl_no, 'expiry_date' => $dl->expiry_date->format('d-m-Y'), 'details' => "Vehicle Class: {$dl->vehicle_class}"];
         });
 
-        // --- START OF FIX ---
-        // 1. Load ALL relationships needed for checking.
         $citizen->vehicles()->with(['insurances', 'puccs', 'fitnesses', 'taxes', 'permits', 'vltds', 'speedGovernors'])->get()->each(function ($vehicle) use (&$expiredDocuments, $today) {
             $regNo = $vehicle->registration_no;
 
@@ -157,7 +177,6 @@ class CitizenController extends Controller
                 $expiredDocuments[] = ['type' => 'Fitness', 'identifier' => $regNo, 'expiry_date' => $fit->expiry_date->format('d-m-Y'), 'details' => "Certificate: {$fit->certificate_number}"];
             });
 
-            // 2. Add the missing checks for the other document types.
             $vehicle->taxes()->whereDate('tax_upto', '<', $today)->get()->each(function ($tax) use (&$expiredDocuments, $regNo) {
                 $expiredDocuments[] = ['type' => 'Tax', 'identifier' => $regNo, 'expiry_date' => $tax->tax_upto->format('d-m-Y'), 'details' => "Mode: {$tax->tax_mode}"];
             });
@@ -174,7 +193,6 @@ class CitizenController extends Controller
                 $expiredDocuments[] = ['type' => 'Speed Governor', 'identifier' => $regNo, 'expiry_date' => $sg->expiry_date->format('d-m-Y'), 'details' => "Certificate: {$sg->certificate_number}"];
             });
         });
-        // --- END OF FIX ---
 
         return response()->json([
             'citizen' => $citizen,
