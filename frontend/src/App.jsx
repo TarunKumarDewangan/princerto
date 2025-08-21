@@ -24,7 +24,8 @@ import ToastContainerGlobal from './components/ToastContainerGlobal';
 import './pages/HomePage.css';
 import './components/GlobalSearch.css';
 import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage';
-import ExpiryReportPage from './pages/ExpiryReportPage'; // --- START OF NEW CODE --- (1. Import)
+import ExpiryReportPage from './pages/ExpiryReportPage';
+// --- The DatabaseBackupsPage import has been removed ---
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();
@@ -49,13 +50,13 @@ function Shell({ children }) {
                     <NavDropdown.Item as={Link} to="/search/ll">LL</NavDropdown.Item>
                     <NavDropdown.Item as={Link} to="/search/dl">DL</NavDropdown.Item>
                     <NavDropdown.Item as={Link} to="/search/vehicle">Vehicle</NavDropdown.Item>
-                    {/* --- START OF NEW CODE --- (2. Add Nav Link) */}
                     {isAdminOrManager && <NavDropdown.Divider />}
                     {isAdminOrManager && <NavDropdown.Item as={Link} to="/reports/expiries">Expiry Report</NavDropdown.Item>}
-                    {/* --- END OF NEW CODE --- */}
                   </NavDropdown>
                   {isAdminOrManager && <Nav.Link as={Link} to="/service-requests">Service Requests</Nav.Link>}
+                  {/* --- START OF MODIFIED CODE --- (Reverted to a simple Admin link) */}
                   {isAdmin && <Nav.Link as={Link} to="/admin/users">Admin</Nav.Link>}
+                  {/* --- END OF MODIFIED CODE --- */}
                 </>
               ) : (
                 <>
@@ -104,18 +105,18 @@ export default function App() {
           path="/citizens/:id/expired"
           element={<PrivateRoute roles={['admin', 'manager']}><ExpiredDocumentsPage /></PrivateRoute>}
         />
-
-        {/* --- START OF NEW CODE --- (3. Add Route) */}
         <Route
           path="/reports/expiries"
           element={<PrivateRoute roles={['admin', 'manager']}><ExpiryReportPage /></PrivateRoute>}
         />
-        {/* --- END OF NEW CODE --- */}
 
         <Route path="/search/ll" element={<PrivateRoute><LLSearchPage /></PrivateRoute>} />
         <Route path="/search/dl" element={<PrivateRoute><DLSearchPage /></PrivateRoute>} />
         <Route path="/search/vehicle" element={<PrivateRoute><VehicleSearchPage /></PrivateRoute>} />
         <Route path="/admin/users" element={<PrivateRoute roles={['admin', 'manager']}><AdminUsersPage /></PrivateRoute>} />
+
+        {/* --- The route for /admin/backups has been removed --- */}
+
         <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

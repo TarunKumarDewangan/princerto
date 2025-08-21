@@ -116,15 +116,19 @@ export default function CitizensPage() {
       <Row className="align-items-center mb-3">
         <Col><h3 className="mb-0">Citizen Profiles</h3></Col>
         <Col className="text-end">
-          {/* --- START OF NEW CODE --- */}
+          {/* --- START OF FIX --- */}
           {canWrite && (
             <Button as={Link} to="/reports/expiries" variant="outline-warning" className="me-2">
               Expiry Report
             </Button>
           )}
-          {/* --- END OF NEW CODE --- */}
-          <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>Export CSV</Button>
+          {canWrite && (
+            <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>
+              Export CSV
+            </Button>
+          )}
           <Button onClick={() => setShowCreate(true)}>+ New Profile</Button>
+          {/* --- END OF FIX --- */}
         </Col>
       </Row>
 

@@ -1,10 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react'; // Import Fragment
 import { Link } from 'react-router-dom';
 import { Container, Card, Form, Row, Col, Button, Table, Alert, Spinner, Badge, Pagination } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-// Helper to format dates for display
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -16,6 +15,63 @@ const formatDate = (dateString) => {
   } catch (e) {
     return dateString;
   }
+};
+
+const ExpandedRowDetails = ({ citizenId }) => {
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/citizens/${citizenId}/all-details`);
+        setDetails(data);
+      } catch (e) {
+        toast.error("Failed to load full details for citizen.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [citizenId]);
+
+  if (loading) return <div className="p-3 text-center"><Spinner size="sm" /></div>;
+  if (!details) return <div className="p-3 text-danger">Could not load details.</div>;
+
+  return (
+    <div className="p-3 bg-light">
+      <h6>All Documents for {details.name}</h6>
+      <Row>
+        <Col md={6}>
+          <strong>Learner Licenses</strong>
+          {details.learner_licenses.length > 0 ? (
+            <Table striped bordered size="sm" className="mt-2">
+              <thead><tr><th>LL No</th><th>Expiry</th></tr></thead>
+              <tbody>{details.learner_licenses.map(ll => <tr key={`ll-${ll.id}`}><td>{ll.ll_no}</td><td>{formatDate(ll.expiry_date)}</td></tr>)}</tbody>
+            </Table>
+          ) : <p className="small">- No records</p>}
+        </Col>
+        <Col md={6}>
+          <strong>Driving Licenses</strong>
+          {details.driving_licenses.length > 0 ? (
+             <Table striped bordered size="sm" className="mt-2">
+              <thead><tr><th>DL No</th><th>Expiry</th></tr></thead>
+              <tbody>{details.driving_licenses.map(dl => <tr key={`dl-${dl.id}`}><td>{dl.dl_no}</td><td>{formatDate(dl.expiry_date)}</td></tr>)}</tbody>
+            </Table>
+          ) : <p className="small">- No records</p>}
+        </Col>
+      </Row>
+      {details.vehicles.map(v => (
+        <div key={`v-${v.id}`} className="mt-3">
+          <strong>Vehicle: {v.registration_no}</strong>
+          {v.insurances.length > 0 && <p className="small mb-0">Insurance expires: {formatDate(v.insurances[0].end_date)}</p>}
+          {v.puccs.length > 0 && <p className="small mb-0">PUCC expires: {formatDate(v.puccs[0].valid_until)}</p>}
+          {v.fitnesses.length > 0 && <p className="small mb-0">Fitness expires: {formatDate(v.fitnesses[0].expiry_date)}</p>}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function ExpiryReportPage() {
@@ -30,6 +86,7 @@ export default function ExpiryReportPage() {
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [expandedRowId, setExpandedRowId] = useState(null);
 
   const fetchExpiries = useCallback(async (page = 1) => {
     setLoading(true);
@@ -39,6 +96,7 @@ export default function ExpiryReportPage() {
       const { data } = await api.get('/reports/expiries', { params });
       setItems(data.data || []);
       setMeta(data || {});
+      setExpandedRowId(null);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to load expiry report.';
       setError(msg);
@@ -48,13 +106,8 @@ export default function ExpiryReportPage() {
     }
   }, [filters]);
 
-  useEffect(() => {
-    fetchExpiries(1);
-  }, []);
-
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-
     setFilters(prev => {
         const newFilters = { ...prev, [name]: value };
         if (name === 'exact_date' && value !== '') {
@@ -75,11 +128,8 @@ export default function ExpiryReportPage() {
 
   const handleReset = () => {
     setFilters({
-      vehicle_no: '',
-      start_date: '',
-      end_date: '',
-      owner_name: '',
-      exact_date: '',
+      vehicle_no: '', start_date: '', end_date: '',
+      owner_name: '', exact_date: '',
     });
   };
 
@@ -88,9 +138,23 @@ export default function ExpiryReportPage() {
     fetchExpiries(p);
   };
 
+  const handleToggleRow = (citizenId) => {
+    if (expandedRowId === citizenId) {
+      setExpandedRowId(null);
+    } else {
+      setExpandedRowId(citizenId);
+    }
+  };
+
+  // Use a single useEffect to fetch data when the component mounts or filters change
+  useEffect(() => {
+    fetchExpiries(1);
+  }, [filters]);
+
   return (
     <Container className="py-4">
       <h3 className="mb-3">Documents Expiry Report</h3>
+      {/* --- START OF FIX: The filter card was missing --- */}
       <Card className="mb-3">
         <Card.Body>
           <Form onSubmit={handleSearch}>
@@ -150,18 +214,14 @@ export default function ExpiryReportPage() {
                   />
                 </Form.Group>
               </Col>
-              {/* --- START OF MODIFIED CODE --- */}
-              <Col md="auto">
-                <Button type="submit" disabled={loading}>Search</Button>
-              </Col>
               <Col md="auto">
                 <Button variant="outline-secondary" onClick={handleReset} disabled={loading}>Reset</Button>
               </Col>
-              {/* --- END OF MODIFIED CODE --- */}
             </Row>
           </Form>
         </Card.Body>
       </Card>
+      {/* --- END OF FIX --- */}
 
       {error && <Alert variant="danger">{error}</Alert>}
 
@@ -171,34 +231,39 @@ export default function ExpiryReportPage() {
             <tr>
               <th>#</th>
               <th>Owner Name</th>
-              <th>Mobile</th>
               <th>Doc. Type</th>
               <th>Identifier / No.</th>
               <th>Expiry Date</th>
-              {/* --- START OF NEW CODE --- */}
               <th>Actions</th>
-              {/* --- END OF NEW CODE --- */}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="text-center"><Spinner size="sm" /></td></tr>}
-            {!loading && items.length === 0 && <tr><td colSpan={7} className="text-center">No expiring documents found for the selected filters.</td></tr>}
+            {loading && <tr><td colSpan={6} className="text-center"><Spinner size="sm" /></td></tr>}
+            {!loading && items.length === 0 && <tr><td colSpan={6} className="text-center">No expiring documents found for the selected filters.</td></tr>}
             {!loading && items.map((item, index) => (
-              <tr key={`${item.type}-${item.identifier}-${index}`}>
-                <td>{meta.from + index}</td>
-                <td><Link to={`/citizens/${item.citizen_id}`}>{item.owner_name}</Link></td>
-                <td>{item.owner_mobile || '-'}</td>
-                <td><Badge bg="warning" text="dark">{item.type}</Badge></td>
-                <td>{item.identifier}</td>
-                <td>{formatDate(item.expiry_date)}</td>
-                {/* --- START OF NEW CODE --- */}
-                <td>
-                  <Button as={Link} to={`/citizens/${item.citizen_id}`} variant="outline-secondary" size="sm">
-                    View All Docs
-                  </Button>
-                </td>
-                {/* --- END OF NEW CODE --- */}
-              </tr>
+              // --- START OF FIX: Using Fragment and unique key ---
+              <Fragment key={`item-fragment-${meta.from + index}`}>
+                <tr>
+                  <td>{meta.from + index}</td>
+                  <td><Link to={`/citizens/${item.citizen_id}`}>{item.owner_name}</Link></td>
+                  <td><Badge bg="warning" text="dark">{item.type}</Badge></td>
+                  <td>{item.identifier}</td>
+                  <td>{formatDate(item.expiry_date)}</td>
+                  <td>
+                    <Button variant="outline-info" size="sm" onClick={() => handleToggleRow(item.citizen_id)}>
+                      {expandedRowId === item.citizen_id ? 'Hide All' : 'Show All'}
+                    </Button>
+                  </td>
+                </tr>
+                {expandedRowId === item.citizen_id && (
+                  <tr>
+                    <td colSpan={6}>
+                      <ExpandedRowDetails citizenId={item.citizen_id} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+              // --- END OF FIX ---
             ))}
           </tbody>
         </Table>

@@ -21,14 +21,14 @@ use App\Http\Controllers\Api\VehicleVltdController;
 use App\Http\Controllers\Api\VehiclePermitController;
 use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
-use App\Http\Controllers\Api\ExpiryReportController; // --- START OF NEW CODE --- (Import new controller)
+use App\Http\Controllers\Api\ExpiryReportController;
+// --- The DatabaseBackupController import has been removed ---
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/password/forgot', [PasswordResetController::class, 'requestLink']);
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
-// The route to create a service request is now public.
 Route::post('/service-requests', [ServiceRequestController::class, 'store']);
 
 
@@ -38,16 +38,13 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user()->load('primaryCitizen');
     });
 
-    // Dashboard & Search
+    // Dashboard, Search, & Reports
     Route::get('/dashboard/user-stats', [DashboardController::class, 'getUserStats']);
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->middleware(RoleMiddleware::class . ':admin,manager');
     Route::get('/global-search', [GlobalSearchController::class, 'search']);
+    Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])->middleware(RoleMiddleware::class . ':admin,manager');
 
-    // --- START OF NEW CODE ---
-    // Route for the new Expiry Report page
-    Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])
-        ->middleware(RoleMiddleware::class . ':admin,manager');
-    // --- END OF NEW CODE ---
+    // --- The Backup Routes have been removed ---
 
     // Authenticated Service Request Routes
     Route::get('/service-requests', [ServiceRequestController::class, 'index']);
