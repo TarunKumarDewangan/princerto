@@ -5,6 +5,7 @@ import api from '../services/apiClient';
 
 export default function VehiclePermitEditModal({ show, onHide, record, onUpdated }) {
   const [form, setForm] = useState({ permit_number: '', issue_date: '', expiry_date: '' });
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,6 +16,7 @@ export default function VehiclePermitEditModal({ show, onHide, record, onUpdated
         issue_date: (record.issue_date || '').substring(0, 10),
         expiry_date: (record.expiry_date || '').substring(0, 10),
       });
+      setFile(null);
       setError('');
     }
   }, [record]);
@@ -25,8 +27,18 @@ export default function VehiclePermitEditModal({ show, onHide, record, onUpdated
     e.preventDefault();
     if (!record) return;
     setSaving(true); setError('');
+
+    const formData = new FormData();
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
+    if (file) {
+      formData.append('file', file);
+    }
+    formData.append('_method', 'PUT');
+
     try {
-      await api.put(`/permits/${record.id}`, form);
+      await api.post(`/permits/${record.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       toast.success('Permit record updated.');
       onUpdated?.(); onHide();
     } catch (err) {
@@ -47,6 +59,17 @@ export default function VehiclePermitEditModal({ show, onHide, record, onUpdated
             <Col md={12}><Form.Group><Form.Label>Permit Number *</Form.Label><Form.Control value={form.permit_number} onChange={e => updateForm('permit_number', e.target.value.toUpperCase())} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Issue Date *</Form.Label><Form.Control type="date" value={form.issue_date} onChange={e => updateForm('issue_date', e.target.value)} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Expiry Date *</Form.Label><Form.Control type="date" value={form.expiry_date} onChange={e => updateForm('expiry_date', e.target.value)} required /></Form.Group></Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Upload New Document (Optional)</Form.Label>
+                <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
+                {record.file_path && !file && (
+                    <div className="small mt-1">
+                        Current file: <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${record.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                    </div>
+                )}
+              </Form.Group>
+            </Col>
           </Row>
         </Modal.Body>
         <Modal.Footer>

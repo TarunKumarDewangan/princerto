@@ -48,7 +48,7 @@ return [
             'url' => env('DATABASE_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'laravel'),
+            'database' => env('DB_DATABASE', 'harshit-online'),
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'unix_socket' => env('DB_SOCKET', ''),
@@ -61,13 +61,17 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+
             // --- START OF THE FIX ---
-            // This tells the backup package exactly where to find the mysqldump executable.
-            // Make sure this path is correct for your XAMPP installation.
+            // This configuration is required for the spatie/laravel-backup package to work correctly on XAMPP.
             'dump' => [
-                'dump_binary_path' => 'C:\xampp\mysql\bin', // Or wherever your \bin directory is
+                // This tells the backup package where to find the mysqldump executable.
+                // Make sure this path is correct for your XAMPP installation.
+                'dump_binary_path' => 'C:\xampp\mysql\bin',
                 'use_single_transaction',
                 'timeout' => 60 * 5, // 5 minute timeout
+                // Explicitly setting the port often resolves the TCP/IP socket error on Windows.
+                'port' => env('DB_PORT', '3306'),
             ]
             // --- END OF THE FIX ---
         ],
@@ -98,8 +102,6 @@ return [
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
-            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
-            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
     ],
@@ -108,11 +110,6 @@ return [
     |--------------------------------------------------------------------------
     | Migration Repository Table
     |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
-    |
     */
 
     'migrations' => 'migrations',
@@ -121,11 +118,6 @@ return [
     |--------------------------------------------------------------------------
     | Redis Databases
     |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
-    |
     */
 
     'redis' => [

@@ -9,13 +9,16 @@ class VehicleTax extends Model
 {
     use HasFactory;
 
+    // --- START OF MODIFIED CODE ---
     protected $fillable = [
         'vehicle_id',
         'vehicle_type',
         'tax_mode',
         'tax_from',
-        'tax_upto'
+        'tax_upto',
+        'file_path', // Add this line
     ];
+    // --- END OF MODIFIED CODE ---
 
     protected $casts = [
         'tax_from' => 'date',

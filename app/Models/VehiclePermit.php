@@ -9,7 +9,13 @@ class VehiclePermit extends Model
 {
     use HasFactory;
     protected $table = 'vehicle_permits';
-    protected $fillable = ['vehicle_id', 'issue_date', 'expiry_date', 'permit_number'];
+    protected $fillable = [
+        'vehicle_id',
+        'issue_date',
+        'expiry_date',
+        'permit_number',
+        'file_path', // Add this
+    ];
     protected $casts = ['issue_date' => 'date', 'expiry_date' => 'date'];
 
     public function vehicle()

@@ -4,23 +4,23 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\RoleMiddleware;
-use App\Http\Requests\StoreDrivingLicenseRequest;
-use App\Http\Requests\UpdateDrivingLicenseRequest;
 use App\Models\DrivingLicense;
 use App\Models\Citizen;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class DrivingLicenseController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        // Ensure middleware protects all write actions
         $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['storeForCitizen', 'update', 'destroy']);
     }
 
-    // GET /api/citizens/{citizen}/dl
+    // --- START OF FIX ---
+    // This method was missing from the previous version.
     public function indexByCitizen(Citizen $citizen)
     {
         return DrivingLicense::where('citizen_id', $citizen->id)
@@ -28,7 +28,6 @@ class DrivingLicenseController extends Controller
             ->paginate(10);
     }
 
-    // GET /api/search/dl?dl_no=..&application_no=..
     public function search(Request $request)
     {
         $dl = trim((string) $request->query('dl_no', ''));
@@ -48,41 +47,66 @@ class DrivingLicenseController extends Controller
 
         return $q->paginate(10);
     }
+    // --- END OF FIX ---
 
-    // POST /api/citizens/{citizen}/dl
-    public function storeForCitizen(StoreDrivingLicenseRequest $request, Citizen $citizen)
+    public function storeForCitizen(Request $request, Citizen $citizen)
     {
-        $data = $request->validated();
+        $data = $request->validate([
+            'dl_no' => 'required|string|max:100|unique:driving_licenses,dl_no',
+            'application_no' => 'nullable|string|max:150',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date|after_or_equal:issue_date',
+            'vehicle_class' => 'nullable|string|max:255',
+            'office' => 'nullable|string|max:150',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+        ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('dl_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $data['citizen_id'] = $citizen->id;
         $rec = DrivingLicense::create($data);
         return response()->json($rec, 201);
     }
 
-    // GET /api/dl/{drivingLicense} - Corrected parameter name
     public function show(DrivingLicense $drivingLicense)
     {
         return $drivingLicense->load('citizen:id,name,mobile');
     }
 
-    /**
-     * START: New/Updated Methods
-     */
-
-    // PUT/PATCH /api/dl/{drivingLicense} - Corrected parameter name
-    public function update(UpdateDrivingLicenseRequest $request, DrivingLicense $drivingLicense)
+    public function update(Request $request, DrivingLicense $drivingLicense)
     {
-        $drivingLicense->update($request->validated());
+        $dlId = $drivingLicense->id;
+        $data = $request->validate([
+            'dl_no' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('driving_licenses', 'dl_no')->ignore($dlId)],
+            'application_no' => 'sometimes|nullable|string|max:150',
+            'issue_date' => 'sometimes|nullable|date',
+            'expiry_date' => 'sometimes|nullable|date|after_or_equal:issue_date',
+            'vehicle_class' => 'sometimes|nullable|string|max:255',
+            'office' => 'sometimes|nullable|string|max:150',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+        ]);
+
+        if ($request->hasFile('file')) {
+            if ($drivingLicense->file_path) {
+                Storage::disk('public')->delete($drivingLicense->file_path);
+            }
+            $path = $request->file('file')->store('dl_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
+        $drivingLicense->update($data);
         return $drivingLicense->fresh();
     }
 
-    // DELETE /api/dl/{drivingLicense} - Corrected parameter name
     public function destroy(DrivingLicense $drivingLicense)
     {
+        if ($drivingLicense->file_path) {
+            Storage::disk('public')->delete($drivingLicense->file_path);
+        }
         $drivingLicense->delete();
         return response()->json(['message' => 'Driving License record deleted successfully.']);
     }
-
-    /**
-     * END: New/Updated Methods
-     */
 }

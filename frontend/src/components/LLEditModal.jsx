@@ -26,6 +26,7 @@ export default function LLEditModal({ show, onHide, llRecord, onUpdated }) {
     vehicle_class: {},
     office: '',
   });
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,6 +45,7 @@ export default function LLEditModal({ show, onHide, llRecord, onUpdated }) {
         vehicle_class: selectedClasses,
         office: llRecord.office || '',
       });
+      setFile(null);
       setError('');
     }
   }, [llRecord]);
@@ -75,11 +77,25 @@ export default function LLEditModal({ show, onHide, llRecord, onUpdated }) {
 
     setSaving(true);
     setError('');
-    try {
-      const selectedClasses = Object.keys(form.vehicle_class).filter(key => form.vehicle_class[key]);
-      const payload = { ...form, vehicle_class: selectedClasses.join(', ') };
 
-      await api.put(`/ll/${llRecord.id}`, payload);
+    const formData = new FormData();
+    const selectedClasses = Object.keys(form.vehicle_class).filter(key => form.vehicle_class[key]);
+
+    formData.append('ll_no', form.ll_no);
+    formData.append('application_no', form.application_no);
+    formData.append('issue_date', form.issue_date);
+    formData.append('expiry_date', form.expiry_date);
+    formData.append('office', form.office);
+    formData.append('vehicle_class', selectedClasses.join(', '));
+    if (file) {
+      formData.append('file', file);
+    }
+    formData.append('_method', 'PUT');
+
+    try {
+      await api.post(`/ll/${llRecord.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       toast.success('Learner License record updated.');
       onUpdated?.();
       onHide();
@@ -90,7 +106,7 @@ export default function LLEditModal({ show, onHide, llRecord, onUpdated }) {
     } finally {
       setSaving(false);
     }
-  }; // THE FIX IS HERE: Added the missing closing brace
+  };
 
   if (!llRecord) return null;
 
@@ -105,25 +121,28 @@ export default function LLEditModal({ show, onHide, llRecord, onUpdated }) {
             <Col md={6}><Form.Group><Form.Label>Application No</Form.Label><Form.Control value={form.application_no} onChange={e => updateForm('application_no', e.target.value.toUpperCase())} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Issue Date</Form.Label><Form.Control type="date" value={form.issue_date} onChange={e=>updateForm('issue_date', e.target.value)} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Expiry Date</Form.Label><Form.Control type="date" value={form.expiry_date} onChange={e=>updateForm('expiry_date', e.target.value)} /></Form.Group></Col>
+            <Col md={12}><Form.Group><Form.Label>Office</Form.Label><Form.Select value={form.office} onChange={e=>updateForm('office', e.target.value)}><option value="">-- Select Office --</option>{officeList.map(o => <option key={o} value={o}>{o}</option>)}</Form.Select></Form.Group></Col>
             <Col md={12}>
               <Form.Group>
                 <Form.Label>Vehicle Class</Form.Label>
                 <div className="p-2 border rounded bg-light" style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {Object.keys(vehicleClassMap).map(key => (
-                    <Form.Check
-                      key={key}
-                      type="checkbox"
-                      id={`edit-ll-${key}`}
-                      name={key}
-                      label={`${key} (${vehicleClassMap[key]})`}
-                      checked={!!form.vehicle_class[key]}
-                      onChange={handleCheckboxChange}
-                    />
+                    <Form.Check key={key} type="checkbox" id={`edit-ll-${key}`} name={key} label={`${key} (${vehicleClassMap[key]})`} checked={!!form.vehicle_class[key]} onChange={handleCheckboxChange} />
                   ))}
                 </div>
               </Form.Group>
             </Col>
-            <Col md={12}><Form.Group><Form.Label>Office</Form.Label><Form.Select value={form.office} onChange={e=>updateForm('office', e.target.value)}><option value="">-- Select Office --</option>{officeList.map(o => <option key={o} value={o}>{o}</option>)}</Form.Select></Form.Group></Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Upload New Document (Optional)</Form.Label>
+                <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
+                {llRecord.file_path && !file && (
+                  <div className="small mt-1">
+                    Current file: <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${llRecord.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                  </div>
+                )}
+              </Form.Group>
+            </Col>
           </Row>
         </Modal.Body>
         <Modal.Footer>

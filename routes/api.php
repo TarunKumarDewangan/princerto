@@ -22,7 +22,7 @@ use App\Http\Controllers\Api\VehiclePermitController;
 use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\ExpiryReportController;
-// --- The DatabaseBackupController import has been removed ---
+use App\Http\Controllers\Api\DatabaseBackupController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -44,7 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/global-search', [GlobalSearchController::class, 'search']);
     Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])->middleware(RoleMiddleware::class . ':admin,manager');
 
-    // --- The Backup Routes have been removed ---
+    // --- START OF MODIFIED CODE ---
+    // A single, reliable route to generate and download the database backup.
+    Route::get('/database-backups/download', [DatabaseBackupController::class, 'download']);
+    // --- END OF MODIFIED CODE ---
 
     // Authenticated Service Request Routes
     Route::get('/service-requests', [ServiceRequestController::class, 'index']);
@@ -57,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me/phone', [ProfileController::class, 'changePhone']);
 
     // Citizen Routes
+    Route::get('/citizens/export', \App\Http\Controllers\Api\CitizenExportController::class);
     Route::get('/citizens/{citizen}/all-details', [CitizenController::class, 'getAllDetails']);
     Route::post('/citizens/{citizen}/send-message', [CitizenController::class, 'sendMessage'])->middleware(RoleMiddleware::class . ':admin,manager');
     Route::get('/citizens/{citizen}/expired-documents', [CitizenController::class, 'getExpiredDocuments'])->middleware(RoleMiddleware::class . ':admin,manager');
@@ -81,7 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/search/vehicle', [VehicleController::class, 'search']);
 
     // Vehicle Sub-resources
-    Route::resource('taxes', VehicleTaxController::class)->except(['index', 'create', 'edit', 'store']);
+    Route::resource('taxes', \App\Http\Controllers\Api\VehicleTaxController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'indexByVehicle']);
     Route::post('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'storeForVehicle']);
     Route::resource('insurances', VehicleInsuranceController::class)->except(['index', 'create', 'edit', 'store']);

@@ -99,7 +99,6 @@ export default function CitizenProfile() {
   const [speedGovernorVehicle, setSpeedGovernorVehicle] = useState(null);
   const [editingSpeedGovernor, setEditingSpeedGovernor] = useState(null);
   const [showSpeedGovernorEdit, setShowSpeedGovernorEdit] = useState(false);
-
   const [editingTax, setEditingTax] = useState(null);
   const [showTaxEdit, setShowTaxEdit] = useState(false);
 
@@ -227,9 +226,81 @@ export default function CitizenProfile() {
       </Card>
 
       <Tabs activeKey={activeTab} onSelect={handleTabSelect} className="mb-3">
-        <Tab eventKey="ll" title="Learner Licenses"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">LL Records</div>{canWrite && <Button size="sm" onClick={()=>setShowLL(true)}>+ Add LL</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>LL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th>{canWrite && <th>Actions</th>}</tr></thead><tbody>{ll.data.length > 0 ? ( ll.data.map((r, i) => ( <tr key={r.id}><td>{(ll.meta?.from ?? 1) + i}</td><td>{r.ll_no}</td><td>{r.application_no || '-'}</td><td>{formatDate(r.issue_date)}</td><td>{formatDate(r.expiry_date)}</td><td>{r.vehicle_class || '-'}</td><td>{r.office || '-'}</td>{canWrite && (<td><Button size="sm" variant="outline-info" className="me-1" disabled={sendingNoticeId === r.id} onClick={() => handleSendLLNotice(r)}>{sendingNoticeId === r.id ? 'Sending...' : 'Notify'}</Button><Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleLLEdit(r)}>Edit</Button><Button size="sm" variant="outline-danger" onClick={() => handleLLDelete(r.id)}>Delete</Button></td>)}</tr>))) : (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
-        <Tab eventKey="dl" title="Driving Licenses"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">DL Records</div>{canWrite && <Button size="sm" onClick={()=>setShowDL(true)}>+ Add DL</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>DL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th>{canWrite && <th>Actions</th>}</tr></thead><tbody>{dl.data.length > 0 ? ( dl.data.map((r, i) => ( <tr key={r.id}><td>{(dl.meta?.from ?? 1) + i}</td><td>{r.dl_no}</td><td>{r.application_no || '-'}</td><td>{formatDate(r.issue_date)}</td><td>{formatDate(r.expiry_date)}</td><td>{r.vehicle_class || '-'}</td><td>{r.office || '-'}</td>{canWrite && (<td><Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleDLEdit(r)}>Edit</Button><Button size="sm" variant="outline-danger" onClick={() => handleDLDelete(r.id)}>Delete</Button></td>)}</tr>))) : (<tr><td colSpan={canWrite ? 8 : 7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
-        <Tab eventKey="veh" title="Vehicles"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">Vehicle Records</div>{canWrite && <Button size="sm" onClick={()=>setShowVeh(true)}>+ Add Vehicle</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>Registration</th><th>Type</th><th>Make/Model</th><th>Chassis</th><th>Engine</th><th>Actions</th></tr></thead><tbody>{veh.data.length > 0 ? ( veh.data.map((r, i) => ( <tr key={r.id}><td>{(veh.meta?.from ?? 1) + i}</td><td>{r.registration_no}</td><td>{r.type || '-'}</td><td>{r.make_model || '-'}</td><td>{r.chassis_no || '-'}</td><td>{r.engine_no || '-'}</td><td><div className="d-flex flex-wrap"><Button size="sm" variant="outline-dark" className="me-1 mb-1" onClick={()=>{ setTaxVehicle(r); setShowTax(true); }}>Taxes</Button><Button size="sm" variant="outline-info" className="me-1 mb-1" onClick={() => handleShowInsurance(r)}>Insurance</Button><Button size="sm" variant="outline-success" className="me-1 mb-1" onClick={() => handleShowPucc(r)}>PUCC</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowFitness(r)}>Fitness</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowVltd(r)}>VLT a</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowPermit(r)}>Permit</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowSpeedGovernor(r)}>Speed Gov.</Button>{canWrite && <Button size="sm" variant="outline-primary" className="me-1 mb-1" onClick={() => handleVehEdit(r)}>Edit</Button>}{canWrite && <Button size="sm" variant="outline-danger" className="mb-1" onClick={() => handleVehDelete(r.id)}>Delete</Button>}</div></td></tr>))) : (<tr><td colSpan={7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
+        <Tab eventKey="ll" title="Learner Licenses">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="fw-semibold">LL Records</div>
+            {canWrite && <Button size="sm" onClick={()=>setShowLL(true)}>+ Add LL</Button>}
+          </div>
+          <div className="table-responsive">
+            <Table bordered hover size="sm">
+              <thead>
+                <tr><th>#</th><th>LL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th><th>Document</th>{canWrite && <th>Actions</th>}</tr>
+              </thead>
+              <tbody>
+                {ll.data.length > 0 ? ( ll.data.map((r, i) => (
+                  <tr key={r.id}>
+                    <td>{(ll.meta?.from ?? 1) + i}</td>
+                    <td>{r.ll_no}</td>
+                    <td>{r.application_no || '-'}</td>
+                    <td>{formatDate(r.issue_date)}</td>
+                    <td>{formatDate(r.expiry_date)}</td>
+                    <td>{r.vehicle_class || '-'}</td>
+                    <td>{r.office || '-'}</td>
+                    <td>
+                      {r.file_path ? (
+                        <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${r.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                      ) : 'N/A'}
+                    </td>
+                    {canWrite && (
+                      <td>
+                        <Button size="sm" variant="outline-info" className="me-1" disabled={sendingNoticeId === r.id} onClick={() => handleSendLLNotice(r)}>{sendingNoticeId === r.id ? 'Sending...' : 'Notify'}</Button>
+                        <Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleLLEdit(r)}>Edit</Button>
+                        <Button size="sm" variant="outline-danger" onClick={() => handleLLDelete(r.id)}>Delete</Button>
+                      </td>
+                    )}
+                  </tr>
+                ))) : (
+                  <tr><td colSpan={canWrite ? 9 : 8} className="text-center">No records</td></tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        </Tab>
+        <Tab eventKey="dl" title="Driving Licenses">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="fw-semibold">DL Records</div>
+            {canWrite && <Button size="sm" onClick={()=>setShowDL(true)}>+ Add DL</Button>}
+          </div>
+          <div className="table-responsive">
+            <Table bordered hover size="sm">
+              <thead>
+                <tr><th>#</th><th>DL No</th><th>Application No</th><th>Issue</th><th>Expiry</th><th>Class</th><th>Office</th><th>Document</th>{canWrite && <th>Actions</th>}</tr>
+              </thead>
+              <tbody>
+                {dl.data.length > 0 ? ( dl.data.map((r, i) => (
+                  <tr key={r.id}>
+                    <td>{(dl.meta?.from ?? 1) + i}</td>
+                    <td>{r.dl_no}</td>
+                    <td>{r.application_no || '-'}</td>
+                    <td>{formatDate(r.issue_date)}</td>
+                    <td>{formatDate(r.expiry_date)}</td>
+                    <td>{r.vehicle_class || '-'}</td>
+                    <td>{r.office || '-'}</td>
+                    <td>
+                      {r.file_path ? (
+                        <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${r.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                      ) : 'N/A'}
+                    </td>
+                    {canWrite && (<td><Button size="sm" variant="outline-primary" className="me-1" onClick={() => handleDLEdit(r)}>Edit</Button><Button size="sm" variant="outline-danger" onClick={() => handleDLDelete(r.id)}>Delete</Button></td>)}
+                  </tr>
+                ))) : (
+                  <tr><td colSpan={canWrite ? 9 : 8} className="text-center">No records</td></tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
+        </Tab>
+        <Tab eventKey="veh" title="Vehicles"><div className="d-flex justify-content-between align-items-center mb-2"><div className="fw-semibold">Vehicle Records</div>{canWrite && <Button size="sm" onClick={()=>setShowVeh(true)}>+ Add Vehicle</Button>}</div><div className="table-responsive"><Table bordered hover size="sm"><thead><tr><th>#</th><th>Registration</th><th>Type</th><th>Make/Model</th><th>Chassis</th><th>Engine</th><th>Actions</th></tr></thead><tbody>{veh.data.length > 0 ? ( veh.data.map((r, i) => ( <tr key={r.id}><td>{(veh.meta?.from ?? 1) + i}</td><td>{r.registration_no}</td><td>{r.type || '-'}</td><td>{r.make_model || '-'}</td><td>{r.chassis_no || '-'}</td><td>{r.engine_no || '-'}</td><td><div className="d-flex flex-wrap"><Button size="sm" variant="outline-dark" className="me-1 mb-1" onClick={()=>{ setTaxVehicle(r); setShowTax(true); }}>Taxes</Button><Button size="sm" variant="outline-info" className="me-1 mb-1" onClick={() => handleShowInsurance(r)}>Insurance</Button><Button size="sm" variant="outline-success" className="me-1 mb-1" onClick={() => handleShowPucc(r)}>PUCC</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowFitness(r)}>Fitness</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowVltd(r)}>VLTd</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowPermit(r)}>Permit</Button><Button size="sm" variant="outline-secondary" className="me-1 mb-1" onClick={() => handleShowSpeedGovernor(r)}>Speed Gov.</Button>{canWrite && <Button size="sm" variant="outline-primary" className="me-1 mb-1" onClick={() => handleVehEdit(r)}>Edit</Button>}{canWrite && <Button size="sm" variant="outline-danger" className="mb-1" onClick={() => handleVehDelete(r.id)}>Delete</Button>}</div></td></tr>))) : (<tr><td colSpan={7} className="text-center">No records</td></tr>)}</tbody></Table></div></Tab>
         <Tab eventKey="all" title="All Details">
           {loadingAllDetails && <div className="text-center my-4"><Spinner animation="border" /></div>}
           {allDetails && (
@@ -271,23 +342,8 @@ export default function CitizenProfile() {
       <VehicleVltdEditModal show={showVltdEdit} onHide={() => { setShowVltdEdit(false); }} record={editingVltd} onUpdated={() => {setShowVltdEdit(false); refreshAllDetails();}} />
       <VehiclePermitEditModal show={showPermitEdit} onHide={() => { setShowPermitEdit(false);}} record={editingPermit} onUpdated={() => {setShowPermitEdit(false); refreshAllDetails();}} />
       <VehicleSpeedGovernorEditModal show={showSpeedGovernorEdit} onHide={() => { setShowSpeedGovernorEdit(false); }} record={editingSpeedGovernor} onUpdated={() => {setShowSpeedGovernorEdit(false); refreshAllDetails();}} />
-
-      <VehicleTaxModal
-        show={showTax}
-        onHide={() => {setShowTax(false); refreshAllDetails();}}
-        vehicle={taxVehicle}
-        onShowEdit={handleShowTaxEdit}
-      />
-      <VehicleTaxEditModal
-        show={showTaxEdit}
-        onHide={() => setShowTaxEdit(false)}
-        record={editingTax}
-        onUpdated={() => {
-          setShowTaxEdit(false);
-          refreshAllDetails();
-        }}
-      />
-
+      <VehicleTaxModal show={showTax} onHide={() => {setShowTax(false); refreshAllDetails();}} vehicle={taxVehicle} onShowEdit={handleShowTaxEdit} />
+      <VehicleTaxEditModal show={showTaxEdit} onHide={() => setShowTaxEdit(false)} record={editingTax} onUpdated={() => { setShowTaxEdit(false); refreshAllDetails(); }} />
       <LLFormModal show={showLL} onHide={()=>setShowLL(false)} citizenId={id} onCreated={() => { loadPageData(); refreshAllDetails(); }} />
       <DLFormModal show={showDL} onHide={()=>setShowDL(false)} citizenId={id} onCreated={() => { loadPageData(); refreshAllDetails(); }} />
       <VehicleFormModal show={showVeh} onHide={()=>setShowVeh(false)} citizenId={id} onCreated={() => { loadPageData(); refreshAllDetails(); }} />

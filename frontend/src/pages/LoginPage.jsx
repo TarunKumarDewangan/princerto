@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'; // New import
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Container, Row, Col, Form, Button, Alert, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
@@ -7,11 +7,15 @@ import { toast } from 'react-toastify';
 export default function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [searchParams] = useSearchParams(); // New hook to read URL parameters
-  const redirectTo = searchParams.get('redirect'); // Get the value of 'redirect'
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
 
-  const [loginId, setLoginId] = useState('admin@site.local');
-  const [password, setPassword] = useState('Admin@123');
+  // --- START OF THE FIX ---
+  // Change the initial state from the admin credentials to empty strings.
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
+  // --- END OF THE FIX ---
+
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,11 +32,9 @@ export default function LoginPage() {
         credentials.phone = loginId;
       }
 
-      // THE FIX IS HERE: Pass the redirectTo path to the login function.
       await login(credentials, redirectTo);
 
       toast.success('Welcome!');
-      // The navigation will now be handled by the AuthContext
     } catch (err) {
       const msg = err?.response?.data?.message || 'Login failed';
       setError(msg);

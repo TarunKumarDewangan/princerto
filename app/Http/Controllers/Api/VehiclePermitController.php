@@ -7,6 +7,7 @@ use App\Models\Vehicle;
 use App\Models\VehiclePermit;
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class VehiclePermitController extends Controller
@@ -28,7 +29,14 @@ class VehiclePermitController extends Controller
             'permit_number' => 'required|string|max:255|unique:vehicle_permits,permit_number',
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('permit_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $permit = $vehicle->permits()->create($data);
         return response()->json($permit, 201);
     }
@@ -39,13 +47,26 @@ class VehiclePermitController extends Controller
             'permit_number' => ['required', 'string', 'max:255', Rule::unique('vehicle_permits')->ignore($permit->id)],
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            if ($permit->file_path) {
+                Storage::disk('public')->delete($permit->file_path);
+            }
+            $path = $request->file('file')->store('permit_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $permit->update($data);
         return $permit->fresh();
     }
 
     public function destroy(VehiclePermit $permit)
     {
+        if ($permit->file_path) {
+            Storage::disk('public')->delete($permit->file_path);
+        }
         $permit->delete();
         return response()->json(['message' => 'Permit record deleted successfully.']);
     }

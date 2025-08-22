@@ -16,7 +16,8 @@ class LearnerLicense extends Model
         'issue_date',
         'expiry_date',
         'vehicle_class',
-        'office'
+        'office',
+        'file_path', // Add this
     ];
 
     protected $casts = [

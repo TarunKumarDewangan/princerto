@@ -26,6 +26,7 @@ export default function LLFormModal({ show, onHide, citizenId, onCreated }) {
     vehicle_class: {},
     office: '',
   });
+  const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState('');
 
@@ -39,6 +40,7 @@ export default function LLFormModal({ show, onHide, citizenId, onCreated }) {
         vehicle_class: {},
         office: '',
       });
+      setFile(null);
       setErr('');
     }
   }, [show]);
@@ -68,11 +70,24 @@ export default function LLFormModal({ show, onHide, citizenId, onCreated }) {
     e.preventDefault();
     setErr('');
     setSubmitting(true);
-    try {
-      const selectedClasses = Object.keys(form.vehicle_class).filter(key => form.vehicle_class[key]);
-      const payload = { ...form, vehicle_class: selectedClasses.join(', ') };
 
-      const { data } = await api.post(`/citizens/${citizenId}/ll`, payload);
+    const formData = new FormData();
+    const selectedClasses = Object.keys(form.vehicle_class).filter(key => form.vehicle_class[key]);
+
+    formData.append('ll_no', form.ll_no);
+    formData.append('application_no', form.application_no);
+    formData.append('issue_date', form.issue_date);
+    formData.append('expiry_date', form.expiry_date);
+    formData.append('office', form.office);
+    formData.append('vehicle_class', selectedClasses.join(', '));
+    if (file) {
+      formData.append('file', file);
+    }
+
+    try {
+      const { data } = await api.post(`/citizens/${citizenId}/ll`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       onCreated?.(data);
       onHide();
       toast.success('LL record added');
@@ -92,41 +107,27 @@ export default function LLFormModal({ show, onHide, citizenId, onCreated }) {
         <Modal.Body>
           {err && <Alert variant="danger">{err}</Alert>}
           <Row className="g-3">
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>LL No *</Form.Label>
-                {/* THE CHANGE IS HERE */}
-                <Form.Control value={form.ll_no} onChange={e => up('ll_no', e.target.value.toUpperCase())} required />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Application No</Form.Label>
-                {/* THE CHANGE IS HERE */}
-                <Form.Control value={form.application_no} onChange={e => up('application_no', e.target.value.toUpperCase())} />
-              </Form.Group>
-            </Col>
+            <Col md={6}><Form.Group><Form.Label>LL No *</Form.Label><Form.Control value={form.ll_no} onChange={e => up('ll_no', e.target.value.toUpperCase())} required /></Form.Group></Col>
+            <Col md={6}><Form.Group><Form.Label>Application No</Form.Label><Form.Control value={form.application_no} onChange={e => up('application_no', e.target.value.toUpperCase())} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Issue Date</Form.Label><Form.Control type="date" value={form.issue_date} onChange={e=>up('issue_date', e.target.value)} /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Expiry Date</Form.Label><Form.Control type="date" value={form.expiry_date} onChange={e=>up('expiry_date', e.target.value)} /></Form.Group></Col>
+            <Col md={12}><Form.Group><Form.Label>Office</Form.Label><Form.Select value={form.office} onChange={e=>up('office', e.target.value)}><option value="">-- Select Office --</option>{officeList.map(o => <option key={o} value={o}>{o}</option>)}</Form.Select></Form.Group></Col>
             <Col md={12}>
               <Form.Group>
                 <Form.Label>Vehicle Class</Form.Label>
                 <div className="p-2 border rounded bg-light" style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {Object.keys(vehicleClassMap).map(key => (
-                    <Form.Check
-                      key={key}
-                      type="checkbox"
-                      id={`add-ll-${key}`}
-                      name={key}
-                      label={`${key} (${vehicleClassMap[key]})`}
-                      checked={!!form.vehicle_class[key]}
-                      onChange={handleCheckboxChange}
-                    />
+                    <Form.Check key={key} type="checkbox" id={`add-ll-${key}`} name={key} label={`${key} (${vehicleClassMap[key]})`} checked={!!form.vehicle_class[key]} onChange={handleCheckboxChange} />
                   ))}
                 </div>
               </Form.Group>
             </Col>
-            <Col md={12}><Form.Group><Form.Label>Office</Form.Label><Form.Select value={form.office} onChange={e=>up('office', e.target.value)}><option value="">-- Select Office --</option>{officeList.map(o => <option key={o} value={o}>{o}</option>)}</Form.Select></Form.Group></Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Upload Document (Optional)</Form.Label>
+                <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
+              </Form.Group>
+            </Col>
           </Row>
         </Modal.Body>
         <Modal.Footer>

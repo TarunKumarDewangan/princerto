@@ -7,6 +7,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleInsurance;
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class VehicleInsuranceController extends Controller
@@ -14,10 +15,10 @@ class VehicleInsuranceController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        // Protect all write actions
         $this->middleware(RoleMiddleware::class . ':admin,manager')->except(['indexByVehicle']);
     }
 
+    // --- START OF NEW CODE ---
     /**
      * Display a listing of the insurances for a specific vehicle.
      * GET /api/vehicles/{vehicle}/insurances
@@ -26,6 +27,7 @@ class VehicleInsuranceController extends Controller
     {
         return $vehicle->insurances()->orderBy('end_date', 'desc')->paginate(10);
     }
+    // --- END OF NEW CODE ---
 
     /**
      * Store a newly created insurance for a specific vehicle.
@@ -40,7 +42,13 @@ class VehicleInsuranceController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|string|in:active,expired',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('insurance_documents', 'public');
+            $data['file_path'] = $path;
+        }
 
         $insurance = $vehicle->insurances()->create($data);
 
@@ -60,7 +68,16 @@ class VehicleInsuranceController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|string|in:active,expired',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            if ($insurance->file_path) {
+                Storage::disk('public')->delete($insurance->file_path);
+            }
+            $path = $request->file('file')->store('insurance_documents', 'public');
+            $data['file_path'] = $path;
+        }
 
         $insurance->update($data);
 
@@ -73,6 +90,9 @@ class VehicleInsuranceController extends Controller
      */
     public function destroy(VehicleInsurance $insurance)
     {
+        if ($insurance->file_path) {
+            Storage::disk('public')->delete($insurance->file_path);
+        }
         $insurance->delete();
 
         return response()->json(['message' => 'Insurance record deleted successfully.']);

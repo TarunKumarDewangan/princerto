@@ -7,6 +7,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleSpeedGovernor;
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class VehicleSpeedGovernorController extends Controller
@@ -28,7 +29,14 @@ class VehicleSpeedGovernorController extends Controller
             'certificate_number' => 'required|string|max:255|unique:vehicle_speed_governors,certificate_number',
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('speed_governor_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $speedGovernor = $vehicle->speedGovernors()->create($data);
         return response()->json($speedGovernor, 201);
     }
@@ -39,13 +47,26 @@ class VehicleSpeedGovernorController extends Controller
             'certificate_number' => ['required', 'string', 'max:255', Rule::unique('vehicle_speed_governors')->ignore($speedGovernor->id)],
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            if ($speedGovernor->file_path) {
+                Storage::disk('public')->delete($speedGovernor->file_path);
+            }
+            $path = $request->file('file')->store('speed_governor_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $speedGovernor->update($data);
         return $speedGovernor->fresh();
     }
 
     public function destroy(VehicleSpeedGovernor $speedGovernor)
     {
+        if ($speedGovernor->file_path) {
+            Storage::disk('public')->delete($speedGovernor->file_path);
+        }
         $speedGovernor->delete();
         return response()->json(['message' => 'Speed Governor record deleted successfully.']);
     }

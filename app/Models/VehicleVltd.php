@@ -9,7 +9,13 @@ class VehicleVltd extends Model
 {
     use HasFactory;
     protected $table = 'vehicle_vltds';
-    protected $fillable = ['vehicle_id', 'issue_date', 'expiry_date', 'certificate_number'];
+    protected $fillable = [
+        'vehicle_id',
+        'issue_date',
+        'expiry_date',
+        'certificate_number',
+        'file_path', // Add this
+    ];
     protected $casts = ['issue_date' => 'date', 'expiry_date' => 'date'];
 
     public function vehicle()

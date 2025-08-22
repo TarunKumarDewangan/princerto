@@ -7,6 +7,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleFitness;
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class VehicleFitnessController extends Controller
@@ -28,7 +29,14 @@ class VehicleFitnessController extends Controller
             'certificate_number' => 'required|string|max:255|unique:vehicle_fitnesses,certificate_number',
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('fitness_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $fitness = $vehicle->fitnesses()->create($data);
         return response()->json($fitness, 201);
     }
@@ -39,13 +47,26 @@ class VehicleFitnessController extends Controller
             'certificate_number' => ['required', 'string', 'max:255', Rule::unique('vehicle_fitnesses')->ignore($fitness->id)],
             'issue_date' => 'required|date',
             'expiry_date' => 'required|date|after_or_equal:issue_date',
+            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
+
+        if ($request->hasFile('file')) {
+            if ($fitness->file_path) {
+                Storage::disk('public')->delete($fitness->file_path);
+            }
+            $path = $request->file('file')->store('fitness_documents', 'public');
+            $data['file_path'] = $path;
+        }
+
         $fitness->update($data);
         return $fitness->fresh();
     }
 
     public function destroy(VehicleFitness $fitness)
     {
+        if ($fitness->file_path) {
+            Storage::disk('public')->delete($fitness->file_path);
+        }
         $fitness->delete();
         return response()->json(['message' => 'Fitness record deleted successfully.']);
     }

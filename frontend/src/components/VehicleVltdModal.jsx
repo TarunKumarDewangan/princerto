@@ -24,6 +24,7 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
   const [err, setErr] = useState('');
 
   const [form, setForm] = useState({ certificate_number: '', issue_date: '', expiry_date: '' });
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = async (page = 1) => {
@@ -33,7 +34,7 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
       const { data } = await api.get(`/vehicles/${vehicle.id}/vltds`, { params: { page } });
       setItems(data.data || []); setMeta(data.meta || null);
     } catch (e) {
-      toast.error('Failed to load VLT a records.');
+      toast.error('Failed to load VLTd records.');
     } finally { setLoading(false); }
   };
 
@@ -41,6 +42,7 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
     if (show) {
       load(1);
       setForm({ certificate_number: '', issue_date: '', expiry_date: '' });
+      setFile(null);
     }
   }, [show, vehicle]);
 
@@ -49,9 +51,21 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true); setErr('');
+
+    const formData = new FormData();
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
+    if (file) {
+      formData.append('file', file);
+    }
+
     try {
-      await api.post(`/vehicles/${vehicle.id}/vltds`, form);
-      toast.success('VLT a record added.'); load(1);
+      await api.post(`/vehicles/${vehicle.id}/vltds`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('VLTd record added.');
+      e.target.reset();
+      setFile(null);
+      load(1);
     } catch (e) {
       const msg = e?.response?.data?.message || 'Failed to save record.';
       setErr(msg); toast.error(msg);
@@ -59,7 +73,7 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this VLT a record?')) {
+    if (window.confirm('Delete this VLTd record?')) {
       try { await api.delete(`/vltds/${id}`); toast.success('Record deleted.'); load(meta?.current_page || 1); }
       catch (e) { toast.error(e?.response?.data?.message || 'Delete failed.'); }
     }
@@ -69,21 +83,26 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
 
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton><Modal.Title>VLT a Details — {vehicle.registration_no}</Modal.Title></Modal.Header>
+      <Modal.Header closeButton><Modal.Title>VLTd Details — {vehicle.registration_no}</Modal.Title></Modal.Header>
       <Modal.Body>
         {err && <Alert variant="danger">{err}</Alert>}
         <div className="table-responsive mb-4">
           <Table bordered hover size="sm">
-            <thead><tr><th>#</th><th>Certificate No.</th><th>Issue Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+            <thead><tr><th>#</th><th>Certificate No.</th><th>Issue Date</th><th>Expiry Date</th><th>Document</th><th>Actions</th></tr></thead>
             <tbody>
-              {loading && <tr><td colSpan={5} className="text-center"><Spinner size="sm" /></td></tr>}
-              {!loading && items.length === 0 && <tr><td colSpan={5} className="text-center">No records found.</td></tr>}
+              {loading && <tr><td colSpan={6} className="text-center"><Spinner size="sm" /></td></tr>}
+              {!loading && items.length === 0 && <tr><td colSpan={6} className="text-center">No records found.</td></tr>}
               {!loading && items.map((item, i) => (
                 <tr key={item.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{item.certificate_number}</td>
                   <td>{formatDate(item.issue_date)}</td>
                   <td>{formatDate(item.expiry_date)}</td>
+                  <td>
+                    {item.file_path ? (
+                      <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${item.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                    ) : 'N/A'}
+                  </td>
                   <td>
                     <Button variant="outline-primary" size="sm" className="me-1" onClick={() => onShowEdit(item)}>Edit</Button>
                     <Button variant="outline-danger" size="sm" onClick={() => handleDelete(item.id)}>Delete</Button>
@@ -93,14 +112,15 @@ export default function VehicleVltdModal({ show, onHide, vehicle, onShowEdit }) 
             </tbody>
           </Table>
         </div>
-        <h5 className="mb-3">Add New VLT a Certificate</h5>
+        <h5 className="mb-3">Add New VLTd Certificate</h5>
         <Form onSubmit={submit}>
           <Row className="g-3">
             <Col md={12}><Form.Group><Form.Label>Certificate Number *</Form.Label><Form.Control value={form.certificate_number} onChange={e => updateForm('certificate_number', e.target.value.toUpperCase())} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Issue Date *</Form.Label><Form.Control type="date" value={form.issue_date} onChange={e => updateForm('issue_date', e.target.value)} required /></Form.Group></Col>
             <Col md={6}><Form.Group><Form.Label>Expiry Date *</Form.Label><Form.Control type="date" value={form.expiry_date} onChange={e => updateForm('expiry_date', e.target.value)} required /></Form.Group></Col>
+            <Col md={12}><Form.Group><Form.Label>Upload Document (Optional)</Form.Label><Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} /></Form.Group></Col>
           </Row>
-          <div className="text-end mt-3"><Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add VLT a'}</Button></div>
+          <div className="text-end mt-3"><Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add VLTd'}</Button></div>
         </Form>
       </Modal.Body>
     </Modal>

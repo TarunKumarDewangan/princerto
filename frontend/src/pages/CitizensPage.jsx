@@ -35,9 +35,9 @@ export default function CitizensPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCitizen, setEditingCitizen] = useState(null);
+  const [backingUp, setBackingUp] = useState(false);
 
   const fetchList = async (page = 1, showToasts = false) => {
     setLoading(true);
@@ -89,46 +89,75 @@ export default function CitizensPage() {
     fetchList(meta?.current_page || 1);
   };
 
-  const exportCsv = async () => {
+  // --- START OF MODIFIED CODE ---
+  const handleBackupDownload = async () => {
+    if (!window.confirm('This will generate a full database backup and start the download. This may take a moment. Continue?')) {
+      return;
+    }
+    setBackingUp(true);
+    toast.info('Generating backup... The download will begin automatically.');
+
     try {
-      const params = new URLSearchParams();
-      if (q) params.append('q', q);
-      if (mobile) params.append('mobile', mobile);
-      const url = `/citizens/export?${params.toString()}`;
-      const { data } = await api.get(url, { responseType: 'blob' });
-      const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Use the API client to construct the full URL
+      const fullUrl = `${api.defaults.baseURL}/database-backups/download`;
+
+      // We don't use axios for this, as it complicates file downloads.
+      // A simple window.location.href will trigger the browser's native download handling.
+      // We need to append the auth token manually since this isn't an axios request.
+      const token = localStorage.getItem('auth_token');
+
+      // Use fetch to get the file with authorization header
+      const response = await fetch(fullUrl, {
+          headers: {
+              'Authorization': `Bearer ${token}`
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error('Backup failed. Server responded with an error.');
+      }
+
+      const blob = await response.blob();
+
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'backup.sql'; // Fallback filename
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch && filenameMatch.length === 2) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `citizens_export_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
+      a.href = url;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(blobUrl);
-      toast.success('Export downloaded');
-    } catch (e) {
-      toast.error(e?.response?.data?.message || 'Export failed');
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Backup download started!');
+
+    } catch (err) {
+      toast.error('Backup download failed. Please check the logs.');
+    } finally {
+      setBackingUp(false);
     }
   };
+  // --- END OF MODIFIED CODE ---
 
   return (
     <Container className="py-4">
       <Row className="align-items-center mb-3">
         <Col><h3 className="mb-0">Citizen Profiles</h3></Col>
         <Col className="text-end">
-          {/* --- START OF FIX --- */}
-          {canWrite && (
-            <Button as={Link} to="/reports/expiries" variant="outline-warning" className="me-2">
-              Expiry Report
-            </Button>
-          )}
-          {canWrite && (
-            <Button variant="outline-secondary" className="me-2" onClick={exportCsv} disabled={loading}>
-              Export CSV
+          {isAdmin && (
+            <Button variant="outline-secondary" className="me-2" onClick={handleBackupDownload} disabled={backingUp}>
+              {backingUp ? 'Generating Backup...' : 'Backup & Download DB'}
             </Button>
           )}
           <Button onClick={() => setShowCreate(true)}>+ New Profile</Button>
-          {/* --- END OF FIX --- */}
         </Col>
       </Row>
 

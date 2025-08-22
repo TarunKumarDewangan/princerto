@@ -9,18 +9,8 @@ class VehicleInsurance extends Model
 {
     use HasFactory;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
     protected $table = 'vehicle_insurances';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'vehicle_id',
         'vehicle_class_snapshot',
@@ -30,21 +20,14 @@ class VehicleInsurance extends Model
         'start_date',
         'end_date',
         'status',
+        'file_path', // Add this
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
     ];
 
-    /**
-     * Get the vehicle that the insurance belongs to.
-     */
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class);
