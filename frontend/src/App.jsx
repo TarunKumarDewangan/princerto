@@ -25,12 +25,12 @@ import './pages/HomePage.css';
 import './components/GlobalSearch.css';
 import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage';
 import ExpiryReportPage from './pages/ExpiryReportPage';
-// --- The DatabaseBackupsPage import has been removed ---
+import AdminPage from './pages/AdminPage';
+import DataExportPage from './pages/DataExportPage'; // --- START OF NEW CODE ---
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const isUser = user?.role === 'user';
   const isAdminOrManager = user && ['admin', 'manager'].includes(user.role);
 
   return (
@@ -54,9 +54,7 @@ function Shell({ children }) {
                     {isAdminOrManager && <NavDropdown.Item as={Link} to="/reports/expiries">Expiry Report</NavDropdown.Item>}
                   </NavDropdown>
                   {isAdminOrManager && <Nav.Link as={Link} to="/service-requests">Service Requests</Nav.Link>}
-                  {/* --- START OF MODIFIED CODE --- (Reverted to a simple Admin link) */}
-                  {isAdmin && <Nav.Link as={Link} to="/admin/users">Admin</Nav.Link>}
-                  {/* --- END OF MODIFIED CODE --- */}
+                  {isAdmin && <Nav.Link as={Link} to="/admin">Admin</Nav.Link>}
                 </>
               ) : (
                 <>
@@ -113,9 +111,12 @@ export default function App() {
         <Route path="/search/ll" element={<PrivateRoute><LLSearchPage /></PrivateRoute>} />
         <Route path="/search/dl" element={<PrivateRoute><DLSearchPage /></PrivateRoute>} />
         <Route path="/search/vehicle" element={<PrivateRoute><VehicleSearchPage /></PrivateRoute>} />
-        <Route path="/admin/users" element={<PrivateRoute roles={['admin', 'manager']}><AdminUsersPage /></PrivateRoute>} />
 
-        {/* --- The route for /admin/backups has been removed --- */}
+        <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminPage /></PrivateRoute>} />
+        <Route path="/admin/users" element={<PrivateRoute roles={['admin', 'manager']}><AdminUsersPage /></PrivateRoute>} />
+        {/* --- START OF NEW CODE --- */}
+        <Route path="/admin/export" element={<PrivateRoute roles={['admin']}><DataExportPage /></PrivateRoute>} />
+        {/* --- END OF NEW CODE --- */}
 
         <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

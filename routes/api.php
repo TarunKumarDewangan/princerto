@@ -22,7 +22,7 @@ use App\Http\Controllers\Api\VehiclePermitController;
 use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\ExpiryReportController;
-use App\Http\Controllers\Api\DatabaseBackupController;
+use App\Http\Controllers\Api\DataExportController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -45,8 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])->middleware(RoleMiddleware::class . ':admin,manager');
 
     // --- START OF MODIFIED CODE ---
-    // A single, reliable route to generate and download the database backup.
-    Route::get('/database-backups/download', [DatabaseBackupController::class, 'download']);
+    // Remove all old backup/export routes and replace with these:
+    Route::get('/export/tables', [DataExportController::class, 'index']);
+    Route::get('/export/table/{tableName}', [DataExportController::class, 'exportTable']);
+    Route::get('/export/all-as-zip', [DataExportController::class, 'exportAllAsZip']);
     // --- END OF MODIFIED CODE ---
 
     // Authenticated Service Request Routes
@@ -86,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Vehicle Sub-resources
     Route::resource('taxes', \App\Http\Controllers\Api\VehicleTaxController::class)->except(['index', 'create', 'edit', 'store']);
-    Route::get('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'indexByVehicle']);
+    Route::get('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'indexByCitizen']);
     Route::post('/vehicles/{vehicle}/taxes', [VehicleTaxController::class, 'storeForVehicle']);
     Route::resource('insurances', VehicleInsuranceController::class)->except(['index', 'create', 'edit', 'store']);
     Route::get('/vehicles/{vehicle}/insurances', [VehicleInsuranceController::class, 'indexByVehicle']);

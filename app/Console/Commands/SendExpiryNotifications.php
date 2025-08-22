@@ -13,15 +13,33 @@ use Illuminate\Support\Facades\Log;
 
 class SendExpiryNotifications extends Command
 {
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
     protected $signature = 'notifications:send-expiries';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
     protected $description = 'Scan for expiring documents and send WhatsApp notifications.';
 
+    /**
+     * Execute the console command.
+     */
     public function handle(WhatsAppService $whatsAppService): void
     {
         $this->info('Starting to check for expiring documents...');
         Log::info('Running SendExpiryNotifications command.');
 
-        $notificationDays = 30; // Notify 30 days in advance
+        // --- START OF THE FIX ---
+        // Change the notification period from 30 days to 10 days.
+        $notificationDays = 10;
+        // --- END OF THE FIX ---
+
         $expiryTargetDate = Carbon::today()->addDays($notificationDays);
 
         $this->checkDrivingLicenses($whatsAppService, $expiryTargetDate);

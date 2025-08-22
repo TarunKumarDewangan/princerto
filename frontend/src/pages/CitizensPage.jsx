@@ -89,24 +89,17 @@ export default function CitizensPage() {
     fetchList(meta?.current_page || 1);
   };
 
-  // --- START OF MODIFIED CODE ---
   const handleBackupDownload = async () => {
-    if (!window.confirm('This will generate a full database backup and start the download. This may take a moment. Continue?')) {
-      return;
+    if (!window.confirm('This will generate a full database backup and start the download. Continue?')) {
+        return;
     }
     setBackingUp(true);
     toast.info('Generating backup... The download will begin automatically.');
 
     try {
-      // Use the API client to construct the full URL
       const fullUrl = `${api.defaults.baseURL}/database-backups/download`;
-
-      // We don't use axios for this, as it complicates file downloads.
-      // A simple window.location.href will trigger the browser's native download handling.
-      // We need to append the auth token manually since this isn't an axios request.
       const token = localStorage.getItem('auth_token');
 
-      // Use fetch to get the file with authorization header
       const response = await fetch(fullUrl, {
           headers: {
               'Authorization': `Bearer ${token}`
@@ -120,7 +113,7 @@ export default function CitizensPage() {
       const blob = await response.blob();
 
       const contentDisposition = response.headers.get('content-disposition');
-      let filename = 'backup.sql'; // Fallback filename
+      let filename = 'backup.sql';
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
         if (filenameMatch && filenameMatch.length === 2) {
@@ -145,19 +138,25 @@ export default function CitizensPage() {
       setBackingUp(false);
     }
   };
-  // --- END OF MODIFIED CODE ---
 
   return (
     <Container className="py-4">
       <Row className="align-items-center mb-3">
         <Col><h3 className="mb-0">Citizen Profiles</h3></Col>
         <Col className="text-end">
+          {/* --- START OF THE FIX --- */}
+          {canWrite && (
+            <Button as={Link} to="/reports/expiries" variant="outline-warning" className="me-2">
+              Expiry Report
+            </Button>
+          )}
           {isAdmin && (
             <Button variant="outline-secondary" className="me-2" onClick={handleBackupDownload} disabled={backingUp}>
               {backingUp ? 'Generating Backup...' : 'Backup & Download DB'}
             </Button>
           )}
           <Button onClick={() => setShowCreate(true)}>+ New Profile</Button>
+          {/* --- END OF THE FIX --- */}
         </Col>
       </Row>
 

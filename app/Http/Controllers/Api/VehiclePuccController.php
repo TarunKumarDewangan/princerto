@@ -12,7 +12,19 @@ use Illuminate\Validation\Rule;
 
 class VehiclePuccController extends Controller
 {
-    // constructor and indexByVehicle methods remain unchanged...
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+        $this->middleware(RoleMiddleware::class . ':admin,manager')->except(['indexByVehicle']);
+    }
+
+    // --- START OF THE FIX ---
+    // This method was missing.
+    public function indexByVehicle(Vehicle $vehicle)
+    {
+        return $vehicle->puccs()->orderBy('valid_until', 'desc')->paginate(10);
+    }
+    // --- END OF THE FIX ---
 
     public function storeForVehicle(Request $request, Vehicle $vehicle)
     {
@@ -30,6 +42,7 @@ class VehiclePuccController extends Controller
         }
 
         $pucc = $vehicle->puccs()->create($data);
+
         return response()->json($pucc, 201);
     }
 
@@ -52,6 +65,7 @@ class VehiclePuccController extends Controller
         }
 
         $pucc->update($data);
+
         return $pucc->fresh();
     }
 
@@ -61,6 +75,7 @@ class VehiclePuccController extends Controller
             Storage::disk('public')->delete($pucc->file_path);
         }
         $pucc->delete();
+
         return response()->json(['message' => 'PUCC record deleted successfully.']);
     }
 }
