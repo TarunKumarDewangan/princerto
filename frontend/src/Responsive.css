@@ -1,0 +1,67 @@
+/* This rule applies to all screens, but is useful for general mobile adjustments */
+body {
+    /* Prevents horizontal scrolling if an element accidentally overflows */
+    overflow-x: hidden;
+}
+
+/* Media Query for Mobile Devices (tablets and phones, screen width < 768px) */
+@media (max-width: 767.98px) {
+    /* --- GLOBAL STYLES --- */
+    h3 {
+        font-size: 1.5rem; /* Decrease the font size of h3 tags on small screens */
+    }
+    .card {
+        margin-bottom: 1rem !important;
+    }
+    .modal-body {
+        padding: 1rem; /* Reduce padding inside modals to give more space */
+    }
+    .form-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    /* --- TABLE STYLES --- */
+    /* Hide non-essential columns on mobile to prevent horizontal scrolling */
+
+    /* Citizens Page Table */
+    .citizen-table th:nth-child(5), /* Hides the 5th header column (DOB) */
+    .citizen-table td:nth-child(5), /* Hides the 5th data cell (DOB) */
+    .citizen-table th:nth-child(6), /* Hides the 6th header column (Address) */
+    .citizen-table td:nth-child(6) {
+        /* Hides the 6th data cell (Address) */
+        display: none;
+    }
+
+    /* Citizen Profile - LL/DL Tables */
+    .license-table th:nth-child(3), /* Hides Application No */
+    .license-table td:nth-child(3),
+    .license-table th:nth-child(6), /* Hides Class */
+    .license-table td:nth-child(6),
+    .license-table th:nth-child(7), /* Hides Office */
+    .license-table td:nth-child(7) {
+        display: none;
+    }
+
+    /* Citizen Profile - Vehicle Table */
+    .vehicle-table th:nth-child(4), /* Hides Make/Model */
+    .vehicle-table td:nth-child(4),
+    .vehicle-table th:nth-child(5), /* Hides Chassis */
+    .vehicle-table td:nth-child(5),
+    .vehicle-table th:nth-child(6), /* Hides Engine */
+    .vehicle-table td:nth-child(6) {
+        display: none;
+    }
+
+    /* --- HEADER & BUTTONS --- */
+    /* Stack action buttons vertically on the citizen profile page */
+    .profile-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+    .profile-actions .btn {
+        width: 150px; /* Give buttons a consistent width */
+        margin-bottom: 0.5rem;
+    }
+}

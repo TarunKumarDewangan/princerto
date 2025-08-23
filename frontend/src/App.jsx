@@ -27,6 +27,7 @@ import ExpiredDocumentsPage from './pages/ExpiredDocumentsPage';
 import ExpiryReportPage from './pages/ExpiryReportPage';
 import AdminPage from './pages/AdminPage';
 import DataExportPage from './pages/DataExportPage'; // --- START OF NEW CODE ---
+import './Responsive.css';
 
 function Shell({ children }) {
   const { user, logout, showProfileModal, hideProfileModal } = useAuth();

@@ -42,3 +42,4 @@ export default defineConfig({
     // --- END OF NEW CODE ---
   ],
 })
+

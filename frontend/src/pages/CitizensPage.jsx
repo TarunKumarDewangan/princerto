@@ -177,7 +177,7 @@ export default function CitizensPage() {
       {err && <Alert variant="danger">{err}</Alert>}
 
       <div className="table-responsive">
-        <Table bordered hover size="sm">
+        <Table bordered hover size="sm" className="citizen-table">
           <thead>
             <tr>
               <th>#</th>

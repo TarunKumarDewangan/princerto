@@ -1,38 +1,25 @@
 <?php
-
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you can configure the settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
-    */
-
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:5173')],
+    // 👇 list exact origins you will use
+    'allowed_origins' => [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        // keep this only if you will call from the live site during testing:
+        'https://harshitonline.in',
+    ],
 
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 
-    // --- START OF THE FIX ---
-    'exposed_headers' => [
-        'Content-Disposition', // This explicitly allows the frontend to read the filename header
-    ],
-    // --- END OF THE FIX ---
+    'exposed_headers' => ['Content-Disposition'],
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
-
+    // credentials require a **non-wildcard** ACAO and matching Origin
+    'supports_credentials' => true,
 ];
