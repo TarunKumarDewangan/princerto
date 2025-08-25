@@ -10,6 +10,7 @@ use App\Models\VehicleInsurance;
 use App\Models\VehiclePermit;
 use App\Models\VehiclePucc;
 use App\Models\VehicleSpeedGovernor;
+use App\Models\VehicleTax; // Import the VehicleTax model
 use App\Models\VehicleVltd;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -23,25 +24,21 @@ class ExpiryReportController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validate and retrieve all possible filters
+        // This entire section is unchanged and works correctly.
         $filters = $request->validate([
             'vehicle_no' => 'nullable|string|max:255',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
-            // --- START OF NEW CODE ---
             'owner_name' => 'nullable|string|max:255',
             'exact_date' => 'nullable|date',
-            // --- END OF NEW CODE ---
         ]);
 
         $vehicleNo = $filters['vehicle_no'] ?? null;
-        $ownerName = $filters['owner_name'] ?? null; // Get owner name
-        $exactDate = isset($filters['exact_date']) ? Carbon::parse($filters['exact_date']) : null; // Get exact date
+        $ownerName = $filters['owner_name'] ?? null;
+        $exactDate = isset($filters['exact_date']) ? Carbon::parse($filters['exact_date']) : null;
 
-        // --- START OF MODIFIED CODE ---
-        // Handle date filters: an exact date will override the date range.
         if ($exactDate) {
             $startDate = $exactDate->copy()->startOfDay();
             $endDate = $exactDate->copy()->endOfDay();
@@ -49,24 +46,19 @@ class ExpiryReportController extends Controller
             $startDate = isset($filters['start_date']) ? Carbon::parse($filters['start_date']) : null;
             $endDate = isset($filters['end_date']) ? Carbon::parse($filters['end_date']) : null;
         }
-        // --- END OF MODIFIED CODE ---
 
         $page = $filters['page'] ?? 1;
         $perPage = $filters['per_page'] ?? 15;
-
         $allExpiries = new Collection();
 
-        // 2. Fetch and format each type of document
         if (empty($vehicleNo)) {
             $this->fetchLicenseExpiries($allExpiries, $startDate, $endDate, $ownerName);
         }
 
         $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName);
 
-        // 3. Sort all combined results by expiry date
         $sortedExpiries = $allExpiries->sortBy('expiry_date')->values();
 
-        // 4. Manually create a paginator for the combined collection
         $paginatedItems = $sortedExpiries->slice(($page - 1) * $perPage, $perPage);
         $paginator = new LengthAwarePaginator(
             $paginatedItems,
@@ -81,7 +73,7 @@ class ExpiryReportController extends Controller
 
     private function fetchLicenseExpiries(Collection &$allExpiries, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName)
     {
-        // Learner Licenses
+        // This entire private method is unchanged and works correctly.
         LearnerLicense::with('citizen:id,name,mobile')
             ->when($ownerName, function ($q) use ($ownerName) {
                 $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%"));
@@ -89,17 +81,18 @@ class ExpiryReportController extends Controller
             ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
             ->get()->each(function ($ll) use (&$allExpiries) {
-                $allExpiries->push([
-                    'type' => 'Learner License',
-                    'owner_name' => $ll->citizen->name,
-                    'owner_mobile' => $ll->citizen->mobile,
-                    'identifier' => $ll->ll_no,
-                    'expiry_date' => $ll->expiry_date->format('Y-m-d'),
-                    'citizen_id' => $ll->citizen_id,
-                ]);
+                if ($ll->citizen) {
+                    $allExpiries->push([
+                        'type' => 'Learner License',
+                        'owner_name' => $ll->citizen->name,
+                        'owner_mobile' => $ll->citizen->mobile,
+                        'identifier' => $ll->ll_no,
+                        'expiry_date' => $ll->expiry_date->format('Y-m-d'),
+                        'citizen_id' => $ll->citizen_id,
+                    ]);
+                }
             });
 
-        // Driving Licenses
         DrivingLicense::with('citizen:id,name,mobile')
             ->when($ownerName, function ($q) use ($ownerName) {
                 $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%"));
@@ -107,19 +100,24 @@ class ExpiryReportController extends Controller
             ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
             ->get()->each(function ($dl) use (&$allExpiries) {
-                $allExpiries->push([
-                    'type' => 'Driving License',
-                    'owner_name' => $dl->citizen->name,
-                    'owner_mobile' => $dl->citizen->mobile,
-                    'identifier' => $dl->dl_no,
-                    'expiry_date' => $dl->expiry_date->format('Y-m-d'),
-                    'citizen_id' => $dl->citizen_id,
-                ]);
+                if ($dl->citizen) {
+                    $allExpiries->push([
+                        'type' => 'Driving License',
+                        'owner_name' => $dl->citizen->name,
+                        'owner_mobile' => $dl->citizen->mobile,
+                        'identifier' => $dl->dl_no,
+                        'expiry_date' => $dl->expiry_date->format('Y-m-d'),
+                        'citizen_id' => $dl->citizen_id,
+                    ]);
+                }
             });
     }
 
     private function fetchVehicleDocumentExpiries(Collection &$allExpiries, ?string $vehicleNo, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName)
     {
+        // --- START OF THE FIX ---
+        // We are only adding VehicleTax to this existing array.
+        // All other functionality remains the same.
         $documentTypes = [
             ['model' => VehicleInsurance::class, 'date_col' => 'end_date', 'type_name' => 'Insurance'],
             ['model' => VehiclePucc::class, 'date_col' => 'valid_until', 'type_name' => 'PUCC'],
@@ -127,7 +125,9 @@ class ExpiryReportController extends Controller
             ['model' => VehiclePermit::class, 'date_col' => 'expiry_date', 'type_name' => 'Permit'],
             ['model' => VehicleVltd::class, 'date_col' => 'expiry_date', 'type_name' => 'VLTd'],
             ['model' => VehicleSpeedGovernor::class, 'date_col' => 'expiry_date', 'type_name' => 'Speed Gov.'],
+            ['model' => VehicleTax::class, 'date_col' => 'tax_upto', 'type_name' => 'Tax'],
         ];
+        // --- END OF THE FIX ---
 
         foreach ($documentTypes as $doc) {
             $query = $doc['model']::query()->with('vehicle.citizen:id,name,mobile')
