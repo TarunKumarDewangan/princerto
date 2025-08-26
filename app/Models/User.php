@@ -11,6 +11,11 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'name',
         'email',
@@ -18,10 +23,28 @@ class User extends Authenticatable
         'password',
         'role',
         'citizen_id',
+        'branch_id', // --- ADD THIS LINE ---
     ];
 
-    protected $hidden = ['password', 'remember_token',];
-    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed',];
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
 
     /**
      * A User is linked to ONE primary citizen profile (their own identity).
@@ -30,4 +53,14 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Citizen::class, 'citizen_id');
     }
+
+    // --- START OF NEW CODE ---
+    /**
+     * A User can belong to one Branch. This is a new, additive relationship.
+     */
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+    // --- END OF NEW CODE ---
 }

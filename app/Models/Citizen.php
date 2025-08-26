@@ -23,8 +23,13 @@ class Citizen extends Model
         'city',
     ];
 
-    protected $casts = ['dob' => 'date',];
-    protected $appends = ['age'];
+    protected $casts = [
+        'dob' => 'date',
+    ];
+
+    protected $appends = [
+        'age'
+    ];
 
     public function getAgeAttribute()
     {
@@ -34,22 +39,24 @@ class Citizen extends Model
         return null;
     }
 
-    // This relationship links a citizen profile to the USER who created it.
-    public function user()
+    // --- START OF MODIFIED CODE ---
+    /**
+     * This relationship links a citizen profile to the USER who created it.
+     * Renamed from user() to creator() for better code clarity.
+     */
+    public function creator()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
+    // --- END OF MODIFIED CODE ---
 
-    // --- START OF NEW CODE ---
     /**
      * Check if this Citizen profile is the primary profile for a User.
-     * The relationship will exist (not be null) if it is.
      */
     public function isPrimaryProfileForUser()
     {
         return $this->hasOne(User::class, 'citizen_id');
     }
-    // --- END OF NEW CODE ---
 
     public function learnerLicenses()
     {

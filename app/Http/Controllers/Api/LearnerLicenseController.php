@@ -19,15 +19,35 @@ class LearnerLicenseController extends Controller
         $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['storeForCitizen', 'update', 'destroy']);
     }
 
+    // --- START OF THE FIX ---
+    // This method was missing its implementation.
     public function indexByCitizen(Citizen $citizen)
     {
-        // This remains unchanged
+        return LearnerLicense::where('citizen_id', $citizen->id)
+            ->orderByDesc('id')
+            ->paginate(10);
     }
 
     public function search(Request $request)
     {
-        // This remains unchanged
+        $ll = trim((string) $request->query('ll_no', ''));
+        $app = trim((string) $request->query('application_no', ''));
+        $authUser = $request->user();
+
+        $q = LearnerLicense::query()
+            ->with('citizen:id,name,mobile')
+            ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
+                $b->whereHas('citizen', function (Builder $citizenQuery) use ($authUser) {
+                    $citizenQuery->where('user_id', $authUser->id);
+                });
+            })
+            ->when($ll !== '', fn(Builder $b) => $b->where('ll_no', 'like', "%{$ll}%"))
+            ->when($app !== '', fn(Builder $b) => $b->where('application_no', 'like', "%{$app}%"))
+            ->orderByDesc('id');
+
+        return $q->paginate(10);
     }
+    // --- END OF THE FIX ---
 
     public function storeForCitizen(Request $request, Citizen $citizen)
     {
@@ -36,7 +56,7 @@ class LearnerLicenseController extends Controller
             'application_no' => 'nullable|string|max:150',
             'issue_date' => 'nullable|date',
             'expiry_date' => 'nullable|date|after_or_equal:issue_date',
-            'vehicle_class' => 'nullable|string|max:100',
+            'vehicle_class' => 'nullable|string|max:255',
             'office' => 'nullable|string|max:150',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
@@ -53,7 +73,7 @@ class LearnerLicenseController extends Controller
 
     public function show(LearnerLicense $learnerLicense)
     {
-        // This remains unchanged
+        return $learnerLicense->load('citizen:id,name,mobile');
     }
 
     public function update(Request $request, LearnerLicense $learnerLicense)
@@ -64,7 +84,7 @@ class LearnerLicenseController extends Controller
             'application_no' => 'sometimes|nullable|string|max:150',
             'issue_date' => 'sometimes|nullable|date',
             'expiry_date' => 'sometimes|nullable|date|after_or_equal:issue_date',
-            'vehicle_class' => 'sometimes|nullable|string|max:100',
+            'vehicle_class' => 'sometimes|nullable|string|max:255',
             'office' => 'sometimes|nullable|string|max:150',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);

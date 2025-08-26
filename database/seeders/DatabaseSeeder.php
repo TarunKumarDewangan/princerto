@@ -12,13 +12,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // This is the line that was missing.
-        // It tells Laravel to run the AdminUserSeeder class.
+        // --- START OF MODIFIED CODE ---
         $this->call([
             AdminUserSeeder::class,
+            BranchSeeder::class, // Add this line
         ]);
+        // --- END OF MODIFIED CODE ---
 
-        // You can add other seeders here in the future, for example:
         // \App\Models\User::factory(10)->create();
 
         // \App\Models\User::factory()->create([

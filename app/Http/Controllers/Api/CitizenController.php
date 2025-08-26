@@ -28,13 +28,11 @@ class CitizenController extends Controller
         $q = trim((string) $request->query('q', ''));
         $mob = trim((string) $request->query('mobile', ''));
         $per = (int) ($request->query('per_page', 10));
-        $authUser = $request->user();
+        $authUser = $request->user()->load('branch'); // Eager load the user's branch information
 
         $query = Citizen::query()
-            ->with(['user:id,name', 'isPrimaryProfileForUser:id,citizen_id'])
-            ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
-                $b->where('user_id', $authUser->id);
-            })
+            // Important: Change with('user:id,name') to with('creator:id,name') to match our updated model
+            ->with(['creator:id,name', 'isPrimaryProfileForUser:id,citizen_id'])
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
                     $x->where('name', 'like', "%{$q}%")
@@ -42,11 +40,35 @@ class CitizenController extends Controller
                         ->orWhere('email', 'like', "%{$q}%");
                 });
             })
-            ->when($mob !== '', fn(Builder $b) => $b->where('mobile', 'like', "%{$mob}%"))
-            ->withCount(['learnerLicenses', 'drivingLicenses', 'vehicles'])
-            ->orderByDesc('id');
+            ->when($mob !== '', fn(Builder $b) => $b->where('mobile', 'like', "%{$mob}%"));
 
-        return $query->paginate($per);
+        // --- START OF THE NEW LOGIC ---
+
+        // Handle filtering for the 'user' role (your existing logic)
+        if ($authUser->role === 'user') {
+            $query->where('user_id', $authUser->id);
+        }
+
+        // Handle filtering for the 'manager' role (our new logic)
+        if ($authUser->role === 'manager') {
+            // Check if the manager is assigned to a specific branch AND that branch is NOT "Dhamtari"
+            if ($authUser->branch_id && $authUser->branch?->name !== 'Dhamtari') {
+
+                // Get a list of all user IDs that belong to the same branch as the logged-in manager
+                $branchUserIds = User::where('branch_id', $authUser->branch_id)->pluck('id');
+
+                // Only show citizens that were created by users from that specific branch
+                $query->whereIn('user_id', $branchUserIds);
+            }
+            // If manager's branch is "Dhamtari" or they have no branch, no filter is applied, so they see all.
+        }
+        // Super Admins and Admins also see all citizens by default, as no filter is applied for them.
+
+        // --- END OF THE NEW LOGIC ---
+
+        return $query->withCount(['learnerLicenses', 'drivingLicenses', 'vehicles'])
+            ->orderByDesc('id')
+            ->paginate($per);
     }
 
     public function store(StoreCitizenRequest $request)
@@ -82,26 +104,16 @@ class CitizenController extends Controller
         return $citizen;
     }
 
-    // --- START OF MODIFIED CODE ---
     public function update(UpdateCitizenRequest $request, Citizen $citizen)
     {
         $validatedData = $request->validated();
 
         DB::transaction(function () use ($citizen, $validatedData) {
-            // Step 1: Always update the citizen record.
             $citizen->update($validatedData);
-
-            // Step 2: Find the User who has this citizen as their primary profile.
             $user = User::where('citizen_id', $citizen->id)->first();
-
-            // Step 3: If a linked user exists, sync their details intelligently.
             if ($user) {
                 $user->name = $validatedData['name'] ?? $user->name;
                 $user->email = $validatedData['email'] ?? $user->email;
-
-                // ** THE SMART SYNC LOGIC IS HERE **
-                // Only update the user's login phone if the new number is not
-                // already in use by another user account.
                 if (isset($validatedData['mobile'])) {
                     $isPhoneTakenByAnotherUser = User::where('phone', $validatedData['mobile'])
                         ->where('id', '!=', $user->id)
@@ -110,17 +122,13 @@ class CitizenController extends Controller
                     if (!$isPhoneTakenByAnotherUser) {
                         $user->phone = $validatedData['mobile'];
                     }
-                    // If the phone is taken, we simply do nothing, avoiding the error.
-                    // The citizen's mobile contact number is already updated above.
                 }
-
                 $user->save();
             }
         });
 
         return $citizen->fresh();
     }
-    // --- END OF MODIFIED CODE ---
 
     public function destroy(Citizen $citizen)
     {

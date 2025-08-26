@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreUserRequest;
-use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
 use App\Models\User;
 use App\Models\Citizen;
@@ -14,14 +12,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class UserAdminController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        // THE FIX IS HERE: The old middleware was removed.
-        // Permissions are now correctly handled in routes/api.php.
     }
 
     public function index(Request $request)
@@ -30,6 +28,7 @@ class UserAdminController extends Controller
         $role = trim((string) $request->query('role', ''));
         $per = (int) ($request->query('per_page', 10));
         $query = User::query()
+            ->with('branch')
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
                     $x->where('name', 'like', "%{$q}%")
@@ -42,23 +41,30 @@ class UserAdminController extends Controller
         return $query->paginate($per);
     }
 
-    public function store(StoreUserRequest $request)
+    public function store(Request $request)
     {
-        $data = $request->validated();
-        $adminUser = $request->user();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
+            'password' => ['required', 'string', PasswordRule::min(8)],
+            'role' => ['required', 'string', 'in:manager,user'],
+            'branch_id' => ['nullable', 'exists:branches,id'],
+        ]);
 
-        $user = DB::transaction(function () use ($data, $adminUser) {
+        // --- START OF THE FIX ---
+        $user = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'phone' => $data['phone'] ?? null,
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],
+                'branch_id' => $data['role'] === 'manager' ? ($data['branch_id'] ?: null) : null,
             ]);
 
             $citizen = Citizen::create([
                 'user_id' => $user->id,
-                'created_by_id' => $adminUser->id,
                 'name' => $user->name,
                 'mobile' => $user->phone,
                 'email' => $user->email,
@@ -68,18 +74,37 @@ class UserAdminController extends Controller
             $user->save();
 
             return $user;
-        });
+        }); // --- THIS CLOSING BRACE WAS MISSING ---
+        // --- END OF THE FIX ---
 
         return response()->json($user, 201);
     }
 
-    public function update(UpdateUserRequest $request, User $user)
+    public function update(Request $request, User $user)
     {
         $loggedInUser = $request->user();
         if ($loggedInUser->role === 'manager' && ($user->role === 'admin' || $user->role === 'manager')) {
             abort(403, 'You do not have permission to edit this user.');
         }
-        $user->update($request->validated());
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
+            'branch_id' => ['nullable', 'exists:branches,id'],
+        ]);
+
+        if ($user->role === 'manager') {
+            $user->branch_id = $data['branch_id'] ?: null;
+        } else {
+            $user->branch_id = null;
+        }
+
+        $user->name = $data['name'];
+        $user->email = $data['email'];
+        $user->phone = $data['phone'];
+        $user->save();
+
         return $user->fresh();
     }
 

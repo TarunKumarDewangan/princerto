@@ -10,8 +10,9 @@ use App\Models\VehicleInsurance;
 use App\Models\VehiclePermit;
 use App\Models\VehiclePucc;
 use App\Models\VehicleSpeedGovernor;
-use App\Models\VehicleTax; // Import the VehicleTax model
+use App\Models\VehicleTax;
 use App\Models\VehicleVltd;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -19,12 +20,9 @@ use Illuminate\Support\Collection;
 
 class ExpiryReportController extends Controller
 {
-    /**
-     * Fetch a paginated list of all expiring documents across the system.
-     */
     public function index(Request $request)
     {
-        // This entire section is unchanged and works correctly.
+        // ... (index method is correct and remains unchanged)
         $filters = $request->validate([
             'vehicle_no' => 'nullable|string|max:255',
             'start_date' => 'nullable|date',
@@ -50,12 +48,13 @@ class ExpiryReportController extends Controller
         $page = $filters['page'] ?? 1;
         $perPage = $filters['per_page'] ?? 15;
         $allExpiries = new Collection();
+        $authUser = $request->user()->load('branch');
 
         if (empty($vehicleNo)) {
-            $this->fetchLicenseExpiries($allExpiries, $startDate, $endDate, $ownerName);
+            $this->fetchLicenseExpiries($allExpiries, $startDate, $endDate, $ownerName, $authUser);
         }
 
-        $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName);
+        $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName, $authUser);
 
         $sortedExpiries = $allExpiries->sortBy('expiry_date')->values();
 
@@ -71,13 +70,19 @@ class ExpiryReportController extends Controller
         return $paginator;
     }
 
-    private function fetchLicenseExpiries(Collection &$allExpiries, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName)
+    private function fetchLicenseExpiries(Collection &$allExpiries, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName, User $authUser)
     {
-        // This entire private method is unchanged and works correctly.
+        $branchUserIds = null;
+        if ($authUser->role === 'manager' && $authUser->branch_id && $authUser->branch?->name !== 'Dhamtari') {
+            $branchUserIds = User::where('branch_id', $authUser->branch_id)->pluck('id');
+        }
+
         LearnerLicense::with('citizen:id,name,mobile')
-            ->when($ownerName, function ($q) use ($ownerName) {
-                $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%"));
-            })
+            // --- START OF THE FIX ---
+            // The relationship is nested: LearnerLicense -> citizen -> creator
+            ->when($branchUserIds, fn($q) => $q->whereHas('citizen.creator', fn($subQ) => $subQ->whereIn('id', $branchUserIds)))
+            // --- END OF THE FIX ---
+            ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
             ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
             ->get()->each(function ($ll) use (&$allExpiries) {
@@ -94,9 +99,11 @@ class ExpiryReportController extends Controller
             });
 
         DrivingLicense::with('citizen:id,name,mobile')
-            ->when($ownerName, function ($q) use ($ownerName) {
-                $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%"));
-            })
+            // --- START OF THE FIX ---
+            // The relationship is nested: DrivingLicense -> citizen -> creator
+            ->when($branchUserIds, fn($q) => $q->whereHas('citizen.creator', fn($subQ) => $subQ->whereIn('id', $branchUserIds)))
+            // --- END OF THE FIX ---
+            ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
             ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
             ->get()->each(function ($dl) use (&$allExpiries) {
@@ -113,11 +120,14 @@ class ExpiryReportController extends Controller
             });
     }
 
-    private function fetchVehicleDocumentExpiries(Collection &$allExpiries, ?string $vehicleNo, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName)
+    private function fetchVehicleDocumentExpiries(Collection &$allExpiries, ?string $vehicleNo, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName, User $authUser)
     {
-        // --- START OF THE FIX ---
-        // We are only adding VehicleTax to this existing array.
-        // All other functionality remains the same.
+        // ... (this method is correct and remains unchanged)
+        $branchUserIds = null;
+        if ($authUser->role === 'manager' && $authUser->branch_id && $authUser->branch?->name !== 'Dhamtari') {
+            $branchUserIds = User::where('branch_id', $authUser->branch_id)->pluck('id');
+        }
+
         $documentTypes = [
             ['model' => VehicleInsurance::class, 'date_col' => 'end_date', 'type_name' => 'Insurance'],
             ['model' => VehiclePucc::class, 'date_col' => 'valid_until', 'type_name' => 'PUCC'],
@@ -127,16 +137,12 @@ class ExpiryReportController extends Controller
             ['model' => VehicleSpeedGovernor::class, 'date_col' => 'expiry_date', 'type_name' => 'Speed Gov.'],
             ['model' => VehicleTax::class, 'date_col' => 'tax_upto', 'type_name' => 'Tax'],
         ];
-        // --- END OF THE FIX ---
 
         foreach ($documentTypes as $doc) {
             $query = $doc['model']::query()->with('vehicle.citizen:id,name,mobile')
-                ->when($vehicleNo, function ($q) use ($vehicleNo) {
-                    $q->whereHas('vehicle', fn($subQ) => $subQ->where('registration_no', 'like', "%{$vehicleNo}%"));
-                })
-                ->when($ownerName, function ($q) use ($ownerName) {
-                    $q->whereHas('vehicle.citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%"));
-                })
+                ->when($branchUserIds, fn($q) => $q->whereHas('vehicle.citizen.creator', fn($subQ) => $subQ->whereIn('id', $branchUserIds)))
+                ->when($vehicleNo, fn($q) => $q->whereHas('vehicle', fn($subQ) => $subQ->where('registration_no', 'like', "%{$vehicleNo}%")))
+                ->when($ownerName, fn($q) => $q->whereHas('vehicle.citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate($doc['date_col'], '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate($doc['date_col'], '<=', $endDate));
 

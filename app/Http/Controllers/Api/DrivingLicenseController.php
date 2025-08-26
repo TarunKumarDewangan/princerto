@@ -19,8 +19,6 @@ class DrivingLicenseController extends Controller
         $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['storeForCitizen', 'update', 'destroy']);
     }
 
-    // --- START OF FIX ---
-    // This method was missing from the previous version.
     public function indexByCitizen(Citizen $citizen)
     {
         return DrivingLicense::where('citizen_id', $citizen->id)
@@ -35,7 +33,7 @@ class DrivingLicenseController extends Controller
         $authUser = $request->user();
 
         $q = DrivingLicense::query()
-            ->with('citizen:id,name,father_name,mobile')
+            ->with('citizen:id,name,mobile') // Corrected relation name
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
                 $b->whereHas('citizen', function (Builder $citizenQuery) use ($authUser) {
                     $citizenQuery->where('user_id', $authUser->id);
@@ -47,7 +45,6 @@ class DrivingLicenseController extends Controller
 
         return $q->paginate(10);
     }
-    // --- END OF FIX ---
 
     public function storeForCitizen(Request $request, Citizen $citizen)
     {

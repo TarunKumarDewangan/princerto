@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\VehicleSpeedGovernorController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Api\ExpiryReportController;
 use App\Http\Controllers\Api\DataExportController;
+use App\Http\Controllers\Api\BranchController; // --- ADD THIS LINE ---
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -44,12 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/global-search', [GlobalSearchController::class, 'search']);
     Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])->middleware(RoleMiddleware::class . ':admin,manager');
 
-    // --- START OF MODIFIED CODE ---
-    // Remove all old backup/export routes and replace with these:
+    // Export Routes
     Route::get('/export/tables', [DataExportController::class, 'index']);
     Route::get('/export/table/{tableName}', [DataExportController::class, 'exportTable']);
     Route::get('/export/all-as-zip', [DataExportController::class, 'exportAllAsZip']);
-    // --- END OF MODIFIED CODE ---
 
     // Authenticated Service Request Routes
     Route::get('/service-requests', [ServiceRequestController::class, 'index']);
@@ -117,5 +116,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/users/{user}', [UserAdminController::class, 'update']);
         Route::delete('/users/{user}', [UserAdminController::class, 'destroy']);
         Route::post('/users/{user}/send-reset-link', [UserAdminController::class, 'sendResetLink']);
+
+        // --- START OF NEW CODE ---
+        Route::get('/branches', [BranchController::class, 'index']);
+        // --- END OF NEW CODE ---
     });
 });

@@ -4,7 +4,8 @@ import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
 export default function UserEditModal({ show, onHide, userRecord, onUpdated }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', branch_id: '' });
+  const [branches, setBranches] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,10 +15,22 @@ export default function UserEditModal({ show, onHide, userRecord, onUpdated }) {
         name: userRecord.name || '',
         email: userRecord.email || '',
         phone: userRecord.phone || '',
+        branch_id: userRecord.branch_id || '',
       });
       setError('');
     }
-  }, [userRecord]);
+    if (show) {
+      const fetchBranches = async () => {
+        try {
+          const { data } = await api.get('/admin/branches');
+          setBranches(data);
+        } catch (e) {
+          toast.error('Could not load branch list.');
+        }
+      };
+      fetchBranches();
+    }
+  }, [userRecord, show]);
 
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -28,7 +41,11 @@ export default function UserEditModal({ show, onHide, userRecord, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      await api.put(`/admin/users/${userRecord.id}`, form);
+      const payload = { ...form };
+      if (userRecord.role !== 'manager') {
+        payload.branch_id = null;
+      }
+      await api.put(`/admin/users/${userRecord.id}`, payload);
       toast.success('User details updated successfully.');
       onUpdated?.();
       onHide();
@@ -53,6 +70,21 @@ export default function UserEditModal({ show, onHide, userRecord, onUpdated }) {
             <Col md={12}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => updateForm('name', e.target.value)} required /></Form.Group></Col>
             <Col md={12}><Form.Group><Form.Label>Email *</Form.Label><Form.Control type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} required /></Form.Group></Col>
             <Col md={12}><Form.Group><Form.Label>Phone</Form.Label><Form.Control value={form.phone} onChange={e => updateForm('phone', e.target.value)} /></Form.Group></Col>
+
+            {userRecord.role === 'manager' && (
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Branch (Optional)</Form.Label>
+                  <Form.Select value={form.branch_id} onChange={e => updateForm('branch_id', e.target.value)}>
+                    <option value="">-- No specific branch (Sees all data) --</option>
+                    {branches.map(branch => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text>Assigning a branch will restrict this manager's view.</Form.Text>
+                </Form.Group>
+              </Col>
+            )}
           </Row>
         </Modal.Body>
         <Modal.Footer>
