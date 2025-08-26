@@ -13,8 +13,6 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * The path to your application's "home" route.
      *
-     * Typically, users are redirected here after authentication.
-     *
      * @var string
      */
     public const HOME = '/home';
@@ -24,8 +22,14 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Default API limiter
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Higher limiter for authenticated API group
+        RateLimiter::for('api_high', function (Request $request) {
+            return Limit::perMinute(200)->by($request->user()?->id ?: $request->ip());
         });
 
         $this->routes(function () {

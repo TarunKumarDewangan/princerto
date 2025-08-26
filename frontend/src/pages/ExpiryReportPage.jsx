@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, Fragment } from 'react'; // Import Fragment
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Card, Form, Row, Col, Button, Table, Alert, Spinner, Badge, Pagination } from 'react-bootstrap';
 import { toast } from 'react-toastify';
@@ -74,6 +74,13 @@ const ExpandedRowDetails = ({ citizenId }) => {
   );
 };
 
+// --- START OF NEW CODE ---
+const documentTypes = [
+    'Learner License', 'Driving License', 'Insurance', 'PUCC',
+    'Fitness', 'Permit', 'VLTd', 'Speed Gov.', 'Tax'
+];
+// --- END OF NEW CODE ---
+
 export default function ExpiryReportPage() {
   const [filters, setFilters] = useState({
     vehicle_no: '',
@@ -81,6 +88,7 @@ export default function ExpiryReportPage() {
     end_date: '',
     owner_name: '',
     exact_date: '',
+    doc_type: '', // --- Add new filter state ---
   });
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -129,7 +137,7 @@ export default function ExpiryReportPage() {
   const handleReset = () => {
     setFilters({
       vehicle_no: '', start_date: '', end_date: '',
-      owner_name: '', exact_date: '',
+      owner_name: '', exact_date: '', doc_type: '', // --- Add to reset ---
     });
   };
 
@@ -146,82 +154,44 @@ export default function ExpiryReportPage() {
     }
   };
 
-  // Use a single useEffect to fetch data when the component mounts or filters change
   useEffect(() => {
-    fetchExpiries(1);
+    const handler = setTimeout(() => {
+      fetchExpiries(1);
+    }, 500);
+    return () => clearTimeout(handler);
   }, [filters]);
 
   return (
     <Container className="py-4">
       <h3 className="mb-3">Documents Expiry Report</h3>
-      {/* --- START OF FIX: The filter card was missing --- */}
       <Card className="mb-3">
         <Card.Body>
           <Form onSubmit={handleSearch}>
             <Row className="g-3 align-items-end">
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Owner Name</Form.Label>
-                  <Form.Control
-                    name="owner_name"
-                    value={filters.owner_name}
-                    onChange={handleFilterChange}
-                    placeholder="Search by owner name..."
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Vehicle No.</Form.Label>
-                  <Form.Control
-                    name="vehicle_no"
-                    value={filters.vehicle_no}
-                    onChange={handleFilterChange}
-                    placeholder="e.g., CG04AB1234"
-                  />
-                </Form.Group>
-              </Col>
+              <Col md={3}><Form.Group><Form.Label>Owner Name</Form.Label><Form.Control name="owner_name" value={filters.owner_name} onChange={handleFilterChange} placeholder="Search by owner name..." /></Form.Group></Col>
+              <Col md={2}><Form.Group><Form.Label>Vehicle No.</Form.Label><Form.Control name="vehicle_no" value={filters.vehicle_no} onChange={handleFilterChange} placeholder="e.g., CG04AB1234" /></Form.Group></Col>
+
+              {/* --- START OF MODIFIED CODE --- */}
               <Col md={2}>
                 <Form.Group>
-                  <Form.Label>Exact Expiry Date</Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="exact_date"
-                    value={filters.exact_date}
-                    onChange={handleFilterChange}
-                  />
+                  <Form.Label>Document Type</Form.Label>
+                  <Form.Select name="doc_type" value={filters.doc_type} onChange={handleFilterChange}>
+                    <option value="">All Types</option>
+                    {documentTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
               </Col>
-              <Col md={2}>
-                <Form.Group>
-                  <Form.Label>Expiry From</Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="start_date"
-                    value={filters.start_date}
-                    onChange={handleFilterChange}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={2}>
-                <Form.Group>
-                  <Form.Label>Expiry Upto</Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="end_date"
-                    value={filters.end_date}
-                    onChange={handleFilterChange}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md="auto">
-                <Button variant="outline-secondary" onClick={handleReset} disabled={loading}>Reset</Button>
-              </Col>
+              <Col md={2}><Form.Group><Form.Label>Exact Expiry Date</Form.Label><Form.Control type="date" name="exact_date" value={filters.exact_date} onChange={handleFilterChange} /></Form.Group></Col>
+              <Col md={2}><Form.Group><Form.Label>Expiry From</Form.Label><Form.Control type="date" name="start_date" value={filters.start_date} onChange={handleFilterChange} /></Form.Group></Col>
+              <Col md={2}><Form.Group><Form.Label>Expiry Upto</Form.Label><Form.Control type="date" name="end_date" value={filters.end_date} onChange={handleFilterChange} /></Form.Group></Col>
+              <Col md="auto"><Button variant="outline-secondary" onClick={handleReset} disabled={loading}>Reset</Button></Col>
             </Row>
           </Form>
         </Card.Body>
       </Card>
-      {/* --- END OF FIX --- */}
+      {/* --- END OF MODIFIED CODE --- */}
 
       {error && <Alert variant="danger">{error}</Alert>}
 
@@ -241,7 +211,6 @@ export default function ExpiryReportPage() {
             {loading && <tr><td colSpan={6} className="text-center"><Spinner size="sm" /></td></tr>}
             {!loading && items.length === 0 && <tr><td colSpan={6} className="text-center">No expiring documents found for the selected filters.</td></tr>}
             {!loading && items.map((item, index) => (
-              // --- START OF FIX: Using Fragment and unique key ---
               <Fragment key={`item-fragment-${meta.from + index}`}>
                 <tr>
                   <td>{meta.from + index}</td>
@@ -263,7 +232,6 @@ export default function ExpiryReportPage() {
                   </tr>
                 )}
               </Fragment>
-              // --- END OF FIX ---
             ))}
           </tbody>
         </Table>

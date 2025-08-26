@@ -17,12 +17,14 @@ class VehicleTax extends Model
         'tax_from',
         'tax_upto',
         'file_path', // Add this line
+        'amount', // --- ADD THIS LINE ---
     ];
     // --- END OF MODIFIED CODE ---
 
     protected $casts = [
         'tax_from' => 'date',
         'tax_upto' => 'date',
+        'amount' => 'decimal:2', // --- ADD THIS LINE to ensure it's treated as a number ---
     ];
 
     public function vehicle()

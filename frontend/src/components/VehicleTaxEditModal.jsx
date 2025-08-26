@@ -8,9 +8,10 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
     vehicle_type: '',
     tax_mode: '',
     tax_from: '',
-    tax_upto: ''
+    tax_upto: '',
+    amount: '',
   });
-  const [file, setFile] = useState(null); // --- START OF NEW CODE --- (State for file)
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,35 +22,29 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
         tax_mode: record.tax_mode || '',
         tax_from: (record.tax_from || '').substring(0, 10),
         tax_upto: (record.tax_upto || '').substring(0, 10),
+        amount: record.amount || '',
       });
-      setFile(null); // Reset file on new record
+      setFile(null);
       setError('');
     }
   }, [record]);
 
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
-  // --- START OF MODIFIED CODE --- (Handle form submission with FormData)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!record) return;
     setSaving(true);
     setError('');
 
-    // To send a file, we need to use FormData
     const formData = new FormData();
-    formData.append('vehicle_type', form.vehicle_type);
-    formData.append('tax_mode', form.tax_mode);
-    formData.append('tax_from', form.tax_from);
-    formData.append('tax_upto', form.tax_upto);
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
     if (file) {
       formData.append('file', file);
     }
-    // We must append _method to tell Laravel we are doing a PUT request
     formData.append('_method', 'PUT');
 
     try {
-      // Use POST for FormData, but Laravel will treat it as PUT because of _method
       await api.post(`/taxes/${record.id}`, formData, {
          headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -64,7 +59,6 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
       setSaving(false);
     }
   };
-  // --- END OF MODIFIED CODE ---
 
   if (!record) return null;
 
@@ -78,35 +72,30 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
              <Col md={6}>
               <Form.Group>
                 <Form.Label>Tax Mode *</Form.Label>
+                {/* --- START OF THE FIX --- */}
                 <Form.Select value={form.tax_mode} onChange={e => updateForm('tax_mode', e.target.value)} required>
                   <option value="">Select</option>
+                  <option value="Monthly">Monthly</option>
                   <option value="Quarterly">Quarterly</option>
                   <option value="HalfYearly">HalfYearly</option>
                   <option value="Yearly">Yearly</option>
                   <option value="OneTime">OneTime</option>
                 </Form.Select>
+                {/* --- END OF THE FIX --- */}
               </Form.Group>
             </Col>
+             <Col md={6}><Form.Group><Form.Label>Vehicle Type (opt)</Form.Label><Form.Control value={form.vehicle_type} onChange={e => updateForm('vehicle_type', e.target.value)} placeholder="LMV / MC" /></Form.Group></Col>
+             <Col md={6}><Form.Group><Form.Label>From *</Form.Label><Form.Control type="date" value={form.tax_from} onChange={e => updateForm('tax_from', e.target.value)} required /></Form.Group></Col>
+             <Col md={6}><Form.Group><Form.Label>Upto *</Form.Label><Form.Control type="date" value={form.tax_upto} onChange={e => updateForm('tax_upto', e.target.value)} required /></Form.Group></Col>
+
             <Col md={6}>
               <Form.Group>
-                <Form.Label>Vehicle Type (opt)</Form.Label>
-                <Form.Control value={form.vehicle_type} onChange={e => updateForm('vehicle_type', e.target.value)} placeholder="LMV / MC" />
+                <Form.Label>Tax Amount (₹)</Form.Label>
+                <Form.Control type="number" step="0.01" value={form.amount} onChange={e => updateForm('amount', e.target.value)} placeholder="e.g., 1500.00" />
               </Form.Group>
             </Col>
+
             <Col md={6}>
-              <Form.Group>
-                <Form.Label>From *</Form.Label>
-                <Form.Control type="date" value={form.tax_from} onChange={e => updateForm('tax_from', e.target.value)} required />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Upto *</Form.Label>
-                <Form.Control type="date" value={form.tax_upto} onChange={e => updateForm('tax_upto', e.target.value)} required />
-              </Form.Group>
-            </Col>
-            {/* --- START OF NEW CODE --- (Add file input) */}
-            <Col md={12}>
               <Form.Group>
                 <Form.Label>Upload New Document (Optional)</Form.Label>
                 <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
@@ -117,7 +106,6 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
                 )}
               </Form.Group>
             </Col>
-            {/* --- END OF NEW CODE --- */}
           </Row>
         </Modal.Body>
         <Modal.Footer>

@@ -35,6 +35,7 @@ class VehicleTaxController extends Controller
             'tax_from' => 'required|date',
             'tax_upto' => 'required|date|after_or_equal:tax_from',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'amount' => 'nullable|numeric|between:0,99999999.99', // Add validation for amount
         ]);
 
         if ($request->hasFile('file')) {
@@ -55,6 +56,7 @@ class VehicleTaxController extends Controller
             'tax_from' => 'sometimes|required|date',
             'tax_upto' => 'sometimes|required|date|after_or_equal:tax_from',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'amount' => 'nullable|numeric|between:0,99999999.99', // Add validation for amount
         ]);
 
         if ($request->hasFile('file')) {

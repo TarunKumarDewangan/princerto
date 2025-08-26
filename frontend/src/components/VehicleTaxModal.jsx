@@ -28,8 +28,9 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
     tax_mode: '',
     tax_from: '',
     tax_upto: '',
+    amount: '',
   });
-  const [file, setFile] = useState(null); // --- START OF NEW CODE --- (State for file)
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = async (page = 1) => {
@@ -52,22 +53,18 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
   useEffect(() => {
     if (show) {
       load(1);
-      setForm({ vehicle_type:'', tax_mode:'', tax_from:'', tax_upto:'' });
-      setFile(null); // Reset file state
+      setForm({ vehicle_type:'', tax_mode:'', tax_from:'', tax_upto:'', amount: '' });
+      setFile(null);
     }
   }, [show, vehicle]);
 
-  // --- START OF MODIFIED CODE --- (Handle form submission with FormData)
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErr('');
 
     const formData = new FormData();
-    formData.append('vehicle_type', form.vehicle_type);
-    formData.append('tax_mode', form.tax_mode);
-    formData.append('tax_from', form.tax_from);
-    formData.append('tax_upto', form.tax_upto);
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
     if (file) {
       formData.append('file', file);
     }
@@ -77,9 +74,9 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setForm({ vehicle_type:'', tax_mode:'', tax_from:'', tax_upto:'' });
-      setFile(null); // Clear file input
-      e.target.reset(); // Reset the form fields visually
+      setForm({ vehicle_type:'', tax_mode:'', tax_from:'', tax_upto:'', amount: '' });
+      setFile(null);
+      e.target.reset();
 
       toast.success('Tax record added');
       load(1);
@@ -91,7 +88,6 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
       setSaving(false);
     }
   };
-  // --- END OF MODIFIED CODE ---
 
   const handleDelete = async (taxId) => {
     if (window.confirm('Are you sure you want to delete this tax record?')) {
@@ -123,30 +119,28 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
                 <th>Tax Mode</th>
                 <th>From</th>
                 <th>Upto</th>
+                <th>Amount</th>
                 <th>Document</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={6} className="text-center"><Spinner size="sm" /></td></tr>}
-              {!loading && items.length === 0 && <tr><td colSpan={6} className="text-center">No records</td></tr>}
+              {loading && <tr><td colSpan={7} className="text-center"><Spinner size="sm" /></td></tr>}
+              {!loading && items.length === 0 && <tr><td colSpan={7} className="text-center">No records</td></tr>}
               {!loading && items.map((t, i)=>(
                 <tr key={t.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{t.tax_mode}</td>
                   <td>{formatDate(t.tax_from)}</td>
                   <td>{formatDate(t.tax_upto)}</td>
-                  {/* --- START OF NEW CODE --- (Show download link) */}
+                  <td>{t.amount ? `₹ ${t.amount}`: '-'}</td>
                   <td>
                     {t.file_path ? (
                       <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${t.file_path}`} target="_blank" rel="noopener noreferrer">
                         View
                       </a>
-                    ) : (
-                      'N/A'
-                    )}
+                    ) : ( 'N/A' )}
                   </td>
-                  {/* --- END OF NEW CODE --- */}
                   <td>
                     <Button variant="outline-primary" size="sm" className="me-1" onClick={() => onShowEdit(t)}>Edit</Button>
                     <Button variant="outline-danger" size="sm" onClick={() => handleDelete(t.id)}>Delete</Button>
@@ -155,7 +149,6 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
               ))}
             </tbody>
           </Table>
-          {meta && <div className="text-end small text-muted">Showing {meta.from}-{meta.to} of {meta.total}</div>}
         </div>
 
         <h5 className="mb-3">Add New Tax Record</h5>
@@ -164,41 +157,35 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
             <Col md={3}>
               <Form.Group>
                 <Form.Label>Tax Mode *</Form.Label>
+                {/* --- START OF THE FIX --- */}
                 <Form.Select value={form.tax_mode} onChange={e=>setForm(f=>({...f, tax_mode:e.target.value}))} required>
                   <option value="">Select</option>
+                  <option value="Monthly">Monthly</option>
                   <option value="Quarterly">Quarterly</option>
                   <option value="HalfYearly">HalfYearly</option>
                   <option value="Yearly">Yearly</option>
                   <option value="OneTime">OneTime</option>
                 </Form.Select>
+                {/* --- END OF THE FIX --- */}
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={3}><Form.Group><Form.Label>From *</Form.Label><Form.Control type="date" value={form.tax_from} onChange={e=>setForm(f=>({...f, tax_from:e.target.value}))} required /></Form.Group></Col>
+            <Col md={3}><Form.Group><Form.Label>Upto *</Form.Label><Form.Control type="date" value={form.tax_upto} onChange={e=>setForm(f=>({...f, tax_upto:e.target.value}))} required /></Form.Group></Col>
+            <Col md={3}><Form.Group><Form.Label>Vehicle Type (opt)</Form.Label><Form.Control value={form.vehicle_type} onChange={e=>setForm(f=>({...f, vehicle_type:e.target.value}))} placeholder="LMV / MC" /></Form.Group></Col>
+
+            <Col md={6}>
               <Form.Group>
-                <Form.Label>From *</Form.Label>
-                <Form.Control type="date" value={form.tax_from} onChange={e=>setForm(f=>({...f, tax_from:e.target.value}))} required />
+                <Form.Label>Tax Amount (₹)</Form.Label>
+                <Form.Control type="number" step="0.01" value={form.amount} onChange={e=>setForm(f=>({...f, amount:e.target.value}))} placeholder="e.g., 1500.00" />
               </Form.Group>
             </Col>
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label>Upto *</Form.Label>
-                <Form.Control type="date" value={form.tax_upto} onChange={e=>setForm(f=>({...f, tax_upto:e.target.value}))} required />
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label>Vehicle Type (opt)</Form.Label>
-                <Form.Control value={form.vehicle_type} onChange={e=>setForm(f=>({...f, vehicle_type:e.target.value}))} placeholder="LMV / MC" />
-              </Form.Group>
-            </Col>
-            {/* --- START OF NEW CODE --- (Add file input) */}
-            <Col md={12}>
+
+            <Col md={6}>
               <Form.Group>
                 <Form.Label>Upload Document (Optional)</Form.Label>
                 <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
               </Form.Group>
             </Col>
-            {/* --- END OF NEW CODE --- */}
           </Row>
           <div className="text-end mt-3">
             <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add Tax'}</Button>

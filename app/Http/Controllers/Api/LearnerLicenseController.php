@@ -7,7 +7,9 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Models\LearnerLicense;
 use App\Models\Citizen;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -19,8 +21,6 @@ class LearnerLicenseController extends Controller
         $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['storeForCitizen', 'update', 'destroy']);
     }
 
-    // --- START OF THE FIX ---
-    // This method was missing its implementation.
     public function indexByCitizen(Citizen $citizen)
     {
         return LearnerLicense::where('citizen_id', $citizen->id)
@@ -47,7 +47,6 @@ class LearnerLicenseController extends Controller
 
         return $q->paginate(10);
     }
-    // --- END OF THE FIX ---
 
     public function storeForCitizen(Request $request, Citizen $citizen)
     {
@@ -68,6 +67,7 @@ class LearnerLicenseController extends Controller
 
         $data['citizen_id'] = $citizen->id;
         $rec = LearnerLicense::create($data);
+
         return response()->json($rec, 201);
     }
 
@@ -79,6 +79,7 @@ class LearnerLicenseController extends Controller
     public function update(Request $request, LearnerLicense $learnerLicense)
     {
         $llId = $learnerLicense->id;
+
         $data = $request->validate([
             'll_no' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('learner_licenses', 'll_no')->ignore($llId)],
             'application_no' => 'sometimes|nullable|string|max:150',
@@ -98,15 +99,38 @@ class LearnerLicenseController extends Controller
         }
 
         $learnerLicense->update($data);
+
         return $learnerLicense->fresh();
     }
 
     public function destroy(LearnerLicense $learnerLicense)
     {
-        if ($learnerLicense->file_path) {
-            Storage::disk('public')->delete($learnerLicense->file_path);
+        try {
+            if ($learnerLicense->file_path) {
+                try {
+                    Storage::disk('public')->delete($learnerLicense->file_path);
+                } catch (\Throwable $e) {
+                    Log::warning('LL file delete failed: ' . $e->getMessage());
+                }
+            }
+
+            $learnerLicense->delete();
+
+            return response()->json(['message' => 'Learner License record deleted successfully.']);
+
+        } catch (QueryException $e) {
+            // Handle foreign key constraint violations gracefully
+            if ((int) $e->getCode() === 23000) {
+                return response()->json([
+                    'message' => 'Cannot delete this record because it is referenced by other records.'
+                ], 409);
+            }
+            Log::error('LL Delete QueryException: ' . $e->getMessage());
+            return response()->json(['message' => 'Delete failed due to a database error.'], 500);
+
+        } catch (\Throwable $e) {
+            Log::error('LL Delete Failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to delete record. Please check server logs.'], 500);
         }
-        $learnerLicense->delete();
-        return response()->json(['message' => 'Learner License record deleted successfully.']);
     }
 }
