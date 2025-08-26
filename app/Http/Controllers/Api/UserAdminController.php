@@ -43,21 +43,21 @@ class UserAdminController extends Controller
 
     public function store(Request $request)
     {
+        // --- VALIDATION RULES UPDATED ---
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
+            'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users'],
+            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
             'password' => ['required', 'string', PasswordRule::min(8)],
             'role' => ['required', 'string', 'in:manager,user'],
             'branch_id' => ['nullable', 'exists:branches,id'],
         ]);
 
-        // --- START OF THE FIX ---
         $user = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'],
-                'email' => $data['email'],
-                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+                'phone' => $data['phone'],
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],
                 'branch_id' => $data['role'] === 'manager' ? ($data['branch_id'] ?: null) : null,
@@ -65,6 +65,7 @@ class UserAdminController extends Controller
 
             $citizen = Citizen::create([
                 'user_id' => $user->id,
+                // 'created_by_id' was removed in a previous step, this is correct
                 'name' => $user->name,
                 'mobile' => $user->phone,
                 'email' => $user->email,
@@ -74,8 +75,7 @@ class UserAdminController extends Controller
             $user->save();
 
             return $user;
-        }); // --- THIS CLOSING BRACE WAS MISSING ---
-        // --- END OF THE FIX ---
+        });
 
         return response()->json($user, 201);
     }
@@ -87,25 +87,38 @@ class UserAdminController extends Controller
             abort(403, 'You do not have permission to edit this user.');
         }
 
+        // --- VALIDATION RULES UPDATED ---
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
+            'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'phone' => ['required', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
             'branch_id' => ['nullable', 'exists:branches,id'],
         ]);
 
-        if ($user->role === 'manager') {
-            $user->branch_id = $data['branch_id'] ?: null;
-        } else {
-            $user->branch_id = null;
-        }
+        // Use a transaction to update both user and their primary citizen profile
+        DB::transaction(function () use ($user, $data) {
+            if ($user->role === 'manager') {
+                $user->branch_id = $data['branch_id'] ?? null;
+            } else {
+                $user->branch_id = null;
+            }
 
-        $user->name = $data['name'];
-        $user->email = $data['email'];
-        $user->phone = $data['phone'];
-        $user->save();
+            $user->name = $data['name'];
+            $user->email = $data['email'] ?? null;
+            $user->phone = $data['phone'];
+            $user->save();
 
-        return $user->fresh();
+            // Sync changes with the primary citizen profile
+            if ($user->primaryCitizen) {
+                $user->primaryCitizen->update([
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'mobile' => $user->phone,
+                ]);
+            }
+        });
+
+        return $user->fresh('branch');
     }
 
     public function destroy(Request $request, User $user)

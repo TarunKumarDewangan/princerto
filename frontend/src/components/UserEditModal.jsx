@@ -68,8 +68,21 @@ export default function UserEditModal({ show, onHide, userRecord, onUpdated }) {
           {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-3">
             <Col md={12}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => updateForm('name', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Email *</Form.Label><Form.Control type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Phone</Form.Label><Form.Control value={form.phone} onChange={e => updateForm('phone', e.target.value)} /></Form.Group></Col>
+
+            {/* --- START OF THE FIX --- */}
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Email</Form.Label>
+                <Form.Control type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} />
+              </Form.Group>
+            </Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Phone *</Form.Label>
+                <Form.Control value={form.phone} onChange={e => updateForm('phone', e.target.value)} required />
+              </Form.Group>
+            </Col>
+            {/* --- END OF THE FIX --- */}
 
             {userRecord.role === 'manager' && (
               <Col md={12}>

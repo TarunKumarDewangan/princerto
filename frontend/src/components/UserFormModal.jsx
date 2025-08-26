@@ -19,15 +19,9 @@ export default function UserFormModal({ show, onHide, onCreated }) {
   useEffect(() => {
     if (show) {
       setForm({
-        name: '',
-        email: '',
-        phone: '',
-        password: '',
-        role: 'manager',
-        branch_id: '',
+        name: '', email: '', phone: '', password: '', role: 'manager', branch_id: '',
       });
       setError('');
-
       const fetchBranches = async () => {
         try {
           const { data } = await api.get('/admin/branches');
@@ -74,8 +68,22 @@ export default function UserFormModal({ show, onHide, onCreated }) {
           {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-3">
             <Col md={12}><Form.Group><Form.Label>Name *</Form.Label><Form.Control value={form.name} onChange={e => update('name', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Email *</Form.Label><Form.Control type="email" value={form.email} onChange={e => update('email', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Phone</Form.Label><Form.Control type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} /></Form.Group></Col>
+
+            {/* --- START OF THE FIX --- */}
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Email</Form.Label>
+                <Form.Control type="email" value={form.email} onChange={e => update('email', e.target.value)} />
+              </Form.Group>
+            </Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Phone *</Form.Label>
+                <Form.Control type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} required />
+              </Form.Group>
+            </Col>
+            {/* --- END OF THE FIX --- */}
+
             <Col md={12}><Form.Group><Form.Label>Password *</Form.Label><Form.Control type="password" value={form.password} onChange={e => update('password', e.target.value)} required placeholder="Min. 8 characters" /></Form.Group></Col>
             <Col md={12}><Form.Group><Form.Label>Role *</Form.Label><Form.Select value={form.role} onChange={e => update('role', e.target.value)}><option value="manager">Manager</option><option value="user">User</option></Form.Select></Form.Group></Col>
 
