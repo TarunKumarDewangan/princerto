@@ -10,11 +10,8 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
 
-  // --- START OF THE FIX ---
-  // Change the initial state from the admin credentials to empty strings.
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  // --- END OF THE FIX ---
 
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -24,16 +21,20 @@ export default function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      const isEmail = loginId.includes('@');
-      const credentials = { password };
+      const id = loginId.trim();
+      const isEmail = id.includes('@');
+
+      const credentials = {
+        password,
+        login_identifier: id, // <-- always send this to satisfy backend
+      };
       if (isEmail) {
-        credentials.email = loginId;
+        credentials.email = id;
       } else {
-        credentials.phone = loginId;
+        credentials.phone = id;
       }
 
       await login(credentials, redirectTo);
-
       toast.success('Welcome!');
     } catch (err) {
       const msg = err?.response?.data?.message || 'Login failed';
@@ -56,11 +57,21 @@ export default function LoginPage() {
               <Form onSubmit={onSubmit}>
                 <Form.Group className="mb-3">
                   <Form.Label>Mobile Number or Email</Form.Label>
-                  <Form.Control value={loginId} onChange={e => setLoginId(e.target.value)} type="text" required />
+                  <Form.Control
+                    value={loginId}
+                    onChange={(e) => setLoginId(e.target.value)}
+                    type="text"
+                    required
+                  />
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Password</Form.Label>
-                  <Form.Control value={password} onChange={e => setPassword(e.target.value)} type="password" required />
+                  <Form.Control
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type="password"
+                    required
+                  />
                 </Form.Group>
                 <Button type="submit" className="w-100" disabled={submitting}>
                   {submitting ? 'Signing In...' : 'Sign In'}

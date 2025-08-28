@@ -7,6 +7,7 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Models\Vehicle;
 use App\Models\VehicleTax;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class VehicleTaxController extends Controller
@@ -14,18 +15,18 @@ class VehicleTaxController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware(RoleMiddleware::class . ':admin,manager')->except(['indexByCitizen']);
+        $this->middleware(RoleMiddleware::class . ':admin,manager')->except(['indexByVehicle']);
     }
 
     // --- START OF THE FIX ---
-    // This method was missing.
-    public function indexByCitizen(Vehicle $vehicle)
+    // The method name was incorrect. It should be indexByVehicle to match the route.
+    public function indexByVehicle(Vehicle $vehicle)
+    // --- END OF THE FIX ---
     {
         return VehicleTax::where('vehicle_id', $vehicle->id)
             ->orderByDesc('tax_upto')
             ->paginate(10);
     }
-    // --- END OF THE FIX ---
 
     public function storeForVehicle(Request $request, Vehicle $vehicle)
     {
@@ -35,7 +36,7 @@ class VehicleTaxController extends Controller
             'tax_from' => 'required|date',
             'tax_upto' => 'required|date|after_or_equal:tax_from',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'amount' => 'nullable|numeric|between:0,99999999.99', // Add validation for amount
+            'amount' => 'nullable|numeric|between:0,99999999.99',
         ]);
 
         if ($request->hasFile('file')) {
@@ -56,7 +57,7 @@ class VehicleTaxController extends Controller
             'tax_from' => 'sometimes|required|date',
             'tax_upto' => 'sometimes|required|date|after_or_equal:tax_from',
             'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'amount' => 'nullable|numeric|between:0,99999999.99', // Add validation for amount
+            'amount' => 'nullable|numeric|between:0,99999999.99',
         ]);
 
         if ($request->hasFile('file')) {
@@ -73,10 +74,22 @@ class VehicleTaxController extends Controller
 
     public function destroy(VehicleTax $tax)
     {
-        if ($tax->file_path) {
-            Storage::disk('public')->delete($tax->file_path);
+        try {
+            if ($tax->file_path) {
+                try {
+                    Storage::disk('public')->delete($tax->file_path);
+                } catch (\Exception $e) {
+                    Log::error("Could not delete tax document file: {$tax->file_path}. Error: " . $e->getMessage());
+                }
+            }
+
+            $tax->delete();
+
+            return response()->json(['message' => 'Tax record deleted successfully.']);
+
+        } catch (\Exception $e) {
+            Log::error('Tax record delete failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to delete record. Please check server logs.'], 500);
         }
-        $tax->delete();
-        return response()->json(['message' => 'Deleted']);
     }
 }

@@ -8,27 +8,33 @@ use App\Models\Citizen;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
-    public function register(Request $req)
+    /**
+     * Register a new user with either email or phone (at least one required).
+     */
+    public function register(Request $request)
     {
-        $data = $req->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|unique:users,phone|digits:10',
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', 'required_without:phone', Rule::unique('users', 'email')],
+            'phone' => ['nullable', 'string', 'max:20', 'required_without:email', Rule::unique('users', 'phone')],
             'password' => ['required', Password::min(6)],
         ]);
 
-        // REVERTED: Logic now correctly creates a User and Citizen without the 'created_by_id' field.
-        $user = DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($validated) {
             $user = User::create([
-                'name' => $data['name'],
-                'phone' => $data['phone'],
-                'password' => Hash::make($data['password']),
+                'name' => $validated['name'],
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'password' => Hash::make($validated['password']),
                 'role' => 'user',
             ]);
 
+            // Create a linked Citizen profile (adapt fields to your schema)
             $citizen = Citizen::create([
                 'user_id' => $user->id,
                 'name' => $user->name,
@@ -38,33 +44,59 @@ class AuthController extends Controller
             $user->citizen_id = $citizen->id;
             $user->save();
 
-            return $user;
-        });
+            $token = $user->createToken('api')->plainTextToken;
 
-        return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
+            return response()->json([
+                'message' => 'User created successfully.',
+                'user' => $user,
+                'token' => $token,
+            ], 201);
+        });
     }
 
+    /**
+     * Login with email OR phone OR login_identifier.
+     */
     public function login(Request $request)
     {
-        if ($request->has('email')) {
-            $credentials = $request->validate(['email' => 'required|email', 'password' => 'required|string',]);
-            $user = User::where('email', $credentials['email'])->first();
-        } else {
-            $credentials = $request->validate(['phone' => 'required|string', 'password' => 'required|string',]);
-            $user = User::where('phone', $credentials['phone'])->first();
+        $request->validate([
+            'password' => ['required', 'string'],
+            'email' => ['nullable', 'email'],
+            'phone' => ['nullable', 'string'],
+            'login_identifier' => ['nullable', 'string'],
+        ]);
+
+        $identifier = $request->input('email')
+            ?? $request->input('phone')
+            ?? $request->input('login_identifier');
+
+        if (!$identifier) {
+            return response()->json(['message' => 'The login identifier field is required.'], 422);
         }
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        $identifier = trim($identifier);
+        $column = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+
+        $user = User::where($column, $identifier)->first();
+
+        if (!$user || !Hash::check($request->input('password'), $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 422);
         }
 
         $token = $user->createToken('api')->plainTextToken;
-        return response()->json(['user' => $user, 'token' => $token]);
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+        ]);
     }
 
-    public function logout(Request $req)
+    /**
+     * Logout current token.
+     */
+    public function logout(Request $request)
     {
-        $req->user()->currentAccessToken()->delete();
+        $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out']);
     }
 }

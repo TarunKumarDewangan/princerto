@@ -38,8 +38,7 @@ export function AuthProvider({ children }) {
     }
     setReady(true);
   };
-
-  useEffect(() => {
+   useEffect(() => {
     // On initial page load, we don't redirect, just check for existing session
     const checkSession = async () => {
       if (localStorage.getItem('auth_token')) {
