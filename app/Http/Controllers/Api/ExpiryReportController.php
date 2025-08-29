@@ -85,7 +85,9 @@ class ExpiryReportController extends Controller
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
                 ->get()->each(function ($ll) use (&$allExpiries) {
-                    if ($ll->citizen) {
+                    // --- START OF THE FIX ---
+                    // Check if the citizen and expiry_date exist before trying to use them.
+                    if ($ll->citizen && $ll->expiry_date) {
                         $allExpiries->push([
                             'type' => 'Learner License',
                             'owner_name' => $ll->citizen->name,
@@ -95,6 +97,7 @@ class ExpiryReportController extends Controller
                             'citizen_id' => $ll->citizen_id,
                         ]);
                     }
+                    // --- END OF THE FIX ---
                 });
         }
 
@@ -105,7 +108,9 @@ class ExpiryReportController extends Controller
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
                 ->get()->each(function ($dl) use (&$allExpiries) {
-                    if ($dl->citizen) {
+                    // --- START OF THE FIX ---
+                    // Check if the citizen and expiry_date exist before trying to use them.
+                    if ($dl->citizen && $dl->expiry_date) {
                         $allExpiries->push([
                             'type' => 'Driving License',
                             'owner_name' => $dl->citizen->name,
@@ -115,6 +120,7 @@ class ExpiryReportController extends Controller
                             'citizen_id' => $dl->citizen_id,
                         ]);
                     }
+                    // --- END OF THE FIX ---
                 });
         }
     }
@@ -149,7 +155,9 @@ class ExpiryReportController extends Controller
                 ->when($endDate, fn($q) => $q->whereDate($doc['date_col'], '<=', $endDate));
 
             $query->get()->each(function ($item) use (&$allExpiries, $doc) {
-                if ($item->vehicle && $item->vehicle->citizen) {
+                // --- START OF THE FIX ---
+                // Check that the date column is not null before trying to format it.
+                if ($item->vehicle && $item->vehicle->citizen && $item->{$doc['date_col']}) {
                     $allExpiries->push([
                         'type' => $doc['type_name'],
                         'owner_name' => $item->vehicle->citizen->name,
@@ -159,6 +167,7 @@ class ExpiryReportController extends Controller
                         'citizen_id' => $item->vehicle->citizen_id,
                     ]);
                 }
+                // --- END OF THE FIX ---
             });
         }
     }
