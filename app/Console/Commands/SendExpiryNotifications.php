@@ -9,12 +9,12 @@ use App\Models\VehicleInsurance;
 use App\Models\VehiclePermit;
 use App\Models\VehiclePucc;
 use App\Models\VehicleSpeedGovernor;
-use App\Models\VehicleTax;
 use App\Models\VehicleVltd;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use App\Models\VehicleTax;
 
 class SendExpiryNotifications extends Command
 {

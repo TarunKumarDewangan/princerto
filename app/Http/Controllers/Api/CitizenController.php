@@ -28,11 +28,16 @@ class CitizenController extends Controller
         $q = trim((string) $request->query('q', ''));
         $mob = trim((string) $request->query('mobile', ''));
         $per = (int) ($request->query('per_page', 10));
-        $authUser = $request->user()->load('branch'); // Eager load the user's branch information
+        $authUser = $request->user();
 
+        // --- START OF THE FIX ---
+        // Changed with('user:id,name') to with('creator:id,name') to load the creator's details.
         $query = Citizen::query()
-            // Important: Change with('user:id,name') to with('creator:id,name') to match our updated model
             ->with(['creator:id,name', 'isPrimaryProfileForUser:id,citizen_id'])
+            ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
+                // --- END OF THE FIX ---
+                $b->where('user_id', $authUser->id);
+            })
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $x) use ($q) {
                     $x->where('name', 'like', "%{$q}%")
@@ -42,29 +47,14 @@ class CitizenController extends Controller
             })
             ->when($mob !== '', fn(Builder $b) => $b->where('mobile', 'like', "%{$mob}%"));
 
-        // --- START OF THE NEW LOGIC ---
-
-        // Handle filtering for the 'user' role (your existing logic)
-        if ($authUser->role === 'user') {
-            $query->where('user_id', $authUser->id);
-        }
-
-        // Handle filtering for the 'manager' role (our new logic)
+        // This logic for branch managers should be added if you are using that feature.
+        // If not, you can safely remove this 'if' block.
         if ($authUser->role === 'manager') {
-            // Check if the manager is assigned to a specific branch AND that branch is NOT "Dhamtari"
             if ($authUser->branch_id && $authUser->branch?->name !== 'Dhamtari') {
-
-                // Get a list of all user IDs that belong to the same branch as the logged-in manager
                 $branchUserIds = User::where('branch_id', $authUser->branch_id)->pluck('id');
-
-                // Only show citizens that were created by users from that specific branch
                 $query->whereIn('user_id', $branchUserIds);
             }
-            // If manager's branch is "Dhamtari" or they have no branch, no filter is applied, so they see all.
         }
-        // Super Admins and Admins also see all citizens by default, as no filter is applied for them.
-
-        // --- END OF THE NEW LOGIC ---
 
         return $query->withCount(['learnerLicenses', 'drivingLicenses', 'vehicles'])
             ->orderByDesc('id')
