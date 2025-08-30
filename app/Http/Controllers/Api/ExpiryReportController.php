@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class ExpiryReportController extends Controller
 {
@@ -51,22 +52,52 @@ class ExpiryReportController extends Controller
         $allExpiries = new Collection();
         $authUser = $request->user()->load('branch');
 
+        // Add debug logging
+        Log::info('Expiry Report Request', [
+            'page' => $page,
+            'per_page' => $perPage,
+            'filters' => $filters
+        ]);
+
         if (empty($vehicleNo)) {
             $this->fetchLicenseExpiries($allExpiries, $startDate, $endDate, $ownerName, $authUser, $docType);
         }
 
         $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName, $authUser, $docType);
 
-        $sortedExpiries = $allExpiries->sortBy('expiry_date')->values();
+        // Remove duplicates and ensure clean data
+        $uniqueExpiries = $allExpiries->unique(function ($item) {
+            return $item['type'] . '|' . $item['identifier'] . '|' . $item['citizen_id'];
+        });
 
-        $paginatedItems = $sortedExpiries->slice(($page - 1) * $perPage, $perPage);
+        $sortedExpiries = $uniqueExpiries->sortBy('expiry_date')->values();
+
+        Log::info('Expiry Report Data', [
+            'total_items' => $sortedExpiries->count(),
+            'page' => $page,
+            'per_page' => $perPage,
+            'offset' => ($page - 1) * $perPage
+        ]);
+
+        // Fixed pagination using slice with proper values conversion
+        $paginatedItems = $sortedExpiries->slice(($page - 1) * $perPage, $perPage)->values();
+
         $paginator = new LengthAwarePaginator(
             $paginatedItems,
             $sortedExpiries->count(),
             $perPage,
             $page,
-            ['path' => $request->url(), 'query' => $request->query()]
+            [
+                'path' => $request->url(),
+                'query' => $request->query()
+            ]
         );
+
+        Log::info('Pagination Result', [
+            'current_page_items' => $paginatedItems->count(),
+            'total_items' => $sortedExpiries->count(),
+            'paginator_data_count' => count($paginator->items())
+        ]);
 
         return $paginator;
     }
@@ -79,49 +110,49 @@ class ExpiryReportController extends Controller
         }
 
         if (!$docType || $docType === 'Learner License') {
-            LearnerLicense::with('citizen:id,name,mobile')
+            $learnerLicenses = LearnerLicense::with('citizen:id,name,mobile')
                 ->when($branchUserIds, fn($q) => $q->whereHas('citizen.creator', fn($subQ) => $subQ->whereIn('id', $branchUserIds)))
                 ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
-                ->get()->each(function ($ll) use (&$allExpiries) {
-                    // --- START OF THE FIX ---
-                    // Check if the citizen and expiry_date exist before trying to use them.
-                    if ($ll->citizen && $ll->expiry_date) {
-                        $allExpiries->push([
-                            'type' => 'Learner License',
-                            'owner_name' => $ll->citizen->name,
-                            'owner_mobile' => $ll->citizen->mobile,
-                            'identifier' => $ll->ll_no,
-                            'expiry_date' => $ll->expiry_date->format('Y-m-d'),
-                            'citizen_id' => $ll->citizen_id,
-                        ]);
-                    }
-                    // --- END OF THE FIX ---
-                });
+                ->whereNotNull('expiry_date')
+                ->get();
+
+            foreach ($learnerLicenses as $ll) {
+                if ($ll->citizen && $ll->expiry_date && $ll->ll_no) {
+                    $allExpiries->push([
+                        'type' => 'Learner License',
+                        'owner_name' => $ll->citizen->name,
+                        'owner_mobile' => $ll->citizen->mobile,
+                        'identifier' => $ll->ll_no,
+                        'expiry_date' => $ll->expiry_date->format('Y-m-d'),
+                        'citizen_id' => $ll->citizen_id,
+                    ]);
+                }
+            }
         }
 
         if (!$docType || $docType === 'Driving License') {
-            DrivingLicense::with('citizen:id,name,mobile')
+            $drivingLicenses = DrivingLicense::with('citizen:id,name,mobile')
                 ->when($branchUserIds, fn($q) => $q->whereHas('citizen.creator', fn($subQ) => $subQ->whereIn('id', $branchUserIds)))
                 ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
-                ->get()->each(function ($dl) use (&$allExpiries) {
-                    // --- START OF THE FIX ---
-                    // Check if the citizen and expiry_date exist before trying to use them.
-                    if ($dl->citizen && $dl->expiry_date) {
-                        $allExpiries->push([
-                            'type' => 'Driving License',
-                            'owner_name' => $dl->citizen->name,
-                            'owner_mobile' => $dl->citizen->mobile,
-                            'identifier' => $dl->dl_no,
-                            'expiry_date' => $dl->expiry_date->format('Y-m-d'),
-                            'citizen_id' => $dl->citizen_id,
-                        ]);
-                    }
-                    // --- END OF THE FIX ---
-                });
+                ->whereNotNull('expiry_date')
+                ->get();
+
+            foreach ($drivingLicenses as $dl) {
+                if ($dl->citizen && $dl->expiry_date && $dl->dl_no) {
+                    $allExpiries->push([
+                        'type' => 'Driving License',
+                        'owner_name' => $dl->citizen->name,
+                        'owner_mobile' => $dl->citizen->mobile,
+                        'identifier' => $dl->dl_no,
+                        'expiry_date' => $dl->expiry_date->format('Y-m-d'),
+                        'citizen_id' => $dl->citizen_id,
+                    ]);
+                }
+            }
         }
     }
 
@@ -152,12 +183,12 @@ class ExpiryReportController extends Controller
                 ->when($vehicleNo, fn($q) => $q->whereHas('vehicle', fn($subQ) => $subQ->where('registration_no', 'like', "%{$vehicleNo}%")))
                 ->when($ownerName, fn($q) => $q->whereHas('vehicle.citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate($doc['date_col'], '>=', $startDate))
-                ->when($endDate, fn($q) => $q->whereDate($doc['date_col'], '<=', $endDate));
+                ->when($endDate, fn($q) => $q->whereDate($doc['date_col'], '<=', $endDate))
+                ->whereNotNull($doc['date_col'])
+                ->get();
 
-            $query->get()->each(function ($item) use (&$allExpiries, $doc) {
-                // --- START OF THE FIX ---
-                // Check that the date column is not null before trying to format it.
-                if ($item->vehicle && $item->vehicle->citizen && $item->{$doc['date_col']}) {
+            foreach ($query as $item) {
+                if ($item->vehicle && $item->vehicle->citizen && $item->{$doc['date_col']} && $item->vehicle->registration_no) {
                     $allExpiries->push([
                         'type' => $doc['type_name'],
                         'owner_name' => $item->vehicle->citizen->name,
@@ -167,8 +198,7 @@ class ExpiryReportController extends Controller
                         'citizen_id' => $item->vehicle->citizen_id,
                     ]);
                 }
-                // --- END OF THE FIX ---
-            });
+            }
         }
     }
 }
