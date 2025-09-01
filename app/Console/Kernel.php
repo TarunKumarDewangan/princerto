@@ -12,10 +12,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
-
-        // This will run the command every day at 9:00 AM server time.
-        $schedule->command('notifications:send-expiries')->dailyAt('09:00');
+        $schedule->command('notifications:send-expiries')
+            ->dailyAt('09:00')
+            ->timezone('Asia/Kolkata'); // Use your desired timezone
     }
 
     /**
