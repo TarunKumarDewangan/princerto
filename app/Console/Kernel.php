@@ -12,9 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        // --- START OF THE FIX ---
         $schedule->command('notifications:send-expiries')
             ->dailyAt('09:00')
-            ->timezone('Asia/Kolkata'); // Use your desired timezone
+            ->timezone('Asia/Kolkata'); // Set the timezone to India Standard Time
+        // --- END OF THE FIX ---
     }
 
     /**
