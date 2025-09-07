@@ -7,16 +7,16 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
-    /**
-     * Define the application's command schedule.
-     */
+    protected $commands = [
+        Commands\SendExpiryNotifications::class,
+    ];
     protected function schedule(Schedule $schedule): void
     {
-        // --- START OF THE FIX ---
         $schedule->command('notifications:send-expiries')
             ->dailyAt('09:00')
-            ->timezone('Asia/Kolkata'); // Set the timezone to India Standard Time
-        // --- END OF THE FIX ---
+            ->timezone('Asia/Kolkata')
+            ->appendOutputTo(storage_path('logs/scheduler.log'))
+            ->emailOutputOnFailure('your-email@example.com'); // Optional
     }
 
     /**
