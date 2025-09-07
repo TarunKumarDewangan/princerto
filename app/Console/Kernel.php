@@ -18,7 +18,12 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->timezone('Asia/Kolkata')
             ->appendOutputTo(storage_path('logs/scheduler.log'))
-            ->emailOutputOnFailure('your-email@example.com'); // Optional
+            ->before(function () {
+                \Log::info('Scheduler starting notifications at: ' . now());
+            })
+            ->after(function () {
+                \Log::info('Scheduler finished notifications at: ' . now());
+            });
     }
 
     /**
