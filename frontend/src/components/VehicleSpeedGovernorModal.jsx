@@ -3,19 +3,8 @@ import { Modal, Button, Table, Form, Row, Col, Alert, Spinner } from 'react-boot
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString.substring(0, 10));
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    if (isNaN(day)) return '-';
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return '-';
-  }
-};
+// --- FIX: The formatDate function is no longer needed here ---
+// const formatDate = (dateString) => { ... };
 
 export default function VehicleSpeedGovernorModal({ show, onHide, vehicle, onShowEdit }) {
   const [items, setItems] = useState([]);
@@ -96,8 +85,9 @@ export default function VehicleSpeedGovernorModal({ show, onHide, vehicle, onSho
                 <tr key={item.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{item.certificate_number}</td>
-                  <td>{formatDate(item.issue_date)}</td>
-                  <td>{formatDate(item.expiry_date)}</td>
+                  {/* --- FIX: Display the pre-formatted date directly from the API --- */}
+                  <td>{item.issue_date || '-'}</td>
+                  <td>{item.expiry_date || '-'}</td>
                   <td>
                     {item.file_path ? (
                       <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${item.file_path}`} target="_blank" rel="noopener noreferrer">View</a>

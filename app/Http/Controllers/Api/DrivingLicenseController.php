@@ -33,7 +33,7 @@ class DrivingLicenseController extends Controller
         $authUser = $request->user();
 
         $q = DrivingLicense::query()
-            ->with('citizen:id,name,mobile') // Corrected relation name
+            ->with('citizen:id,name,mobile')
             ->when($authUser->role === 'user', function (Builder $b) use ($authUser) {
                 $b->whereHas('citizen', function (Builder $citizenQuery) use ($authUser) {
                     $citizenQuery->where('user_id', $authUser->id);
@@ -68,14 +68,20 @@ class DrivingLicenseController extends Controller
         return response()->json($rec, 201);
     }
 
-    public function show(DrivingLicense $drivingLicense)
+    // --- START OF THE FIX (1/3) ---
+    // The variable name is changed from $drivingLicense to $dl to match the route parameter {dl}.
+    public function show(DrivingLicense $dl)
     {
-        return $drivingLicense->load('citizen:id,name,mobile');
+        return $dl->load('citizen:id,name,mobile');
     }
+    // --- END OF THE FIX ---
 
-    public function update(Request $request, DrivingLicense $drivingLicense)
+    // --- START OF THE FIX (2/3) ---
+    // The variable name is changed from $drivingLicense to $dl.
+    public function update(Request $request, DrivingLicense $dl)
     {
-        $dlId = $drivingLicense->id;
+        // The variable inside the method is also updated to use $dl.
+        $dlId = $dl->id;
         $data = $request->validate([
             'dl_no' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('driving_licenses', 'dl_no')->ignore($dlId)],
             'application_no' => 'sometimes|nullable|string|max:150',
@@ -87,23 +93,28 @@ class DrivingLicenseController extends Controller
         ]);
 
         if ($request->hasFile('file')) {
-            if ($drivingLicense->file_path) {
-                Storage::disk('public')->delete($drivingLicense->file_path);
+            if ($dl->file_path) { // Using the corrected variable
+                Storage::disk('public')->delete($dl->file_path);
             }
             $path = $request->file('file')->store('dl_documents', 'public');
             $data['file_path'] = $path;
         }
 
-        $drivingLicense->update($data);
-        return $drivingLicense->fresh();
+        $dl->update($data); // Using the corrected variable
+        return $dl->fresh();
     }
+    // --- END OF THE FIX ---
 
-    public function destroy(DrivingLicense $drivingLicense)
+    // --- START OF THE FIX (3/3) ---
+    // The variable name is changed from $drivingLicense to $dl.
+    public function destroy(DrivingLicense $dl)
     {
-        if ($drivingLicense->file_path) {
-            Storage::disk('public')->delete($drivingLicense->file_path);
+        // The variable inside the method is also updated to use $dl.
+        if ($dl->file_path) {
+            Storage::disk('public')->delete($dl->file_path);
         }
-        $drivingLicense->delete();
+        $dl->delete(); // This will now delete the correct record from the database.
         return response()->json(['message' => 'Driving License record deleted successfully.']);
     }
+    // --- END OF THE FIX ---
 }

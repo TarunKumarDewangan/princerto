@@ -3,6 +3,22 @@ import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
+// --- START OF THE FIX (PART 1) ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return ''; // Return empty string if format is unexpected
+    } catch (e) {
+        return ''; // Return empty string on error
+    }
+};
+// --- END OF THE FIX (PART 1) ---
+
 export default function VehicleTaxEditModal({ show, onHide, record, onUpdated }) {
   const [form, setForm] = useState({
     vehicle_type: '',
@@ -17,13 +33,16 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
 
   useEffect(() => {
     if (record) {
+      // --- START OF THE FIX (PART 2) ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         vehicle_type: record.vehicle_type || '',
         tax_mode: record.tax_mode || '',
-        tax_from: (record.tax_from || '').substring(0, 10),
-        tax_upto: (record.tax_upto || '').substring(0, 10),
+        tax_from: formatDateForInput(record.tax_from),
+        tax_upto: formatDateForInput(record.tax_upto),
         amount: record.amount || '',
       });
+      // --- END OF THE FIX (PART 2) ---
       setFile(null);
       setError('');
     }
@@ -72,7 +91,6 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
              <Col md={6}>
               <Form.Group>
                 <Form.Label>Tax Mode *</Form.Label>
-                {/* --- START OF THE FIX --- */}
                 <Form.Select value={form.tax_mode} onChange={e => updateForm('tax_mode', e.target.value)} required>
                   <option value="">Select</option>
                   <option value="Monthly">Monthly</option>
@@ -81,7 +99,6 @@ export default function VehicleTaxEditModal({ show, onHide, record, onUpdated })
                   <option value="Yearly">Yearly</option>
                   <option value="OneTime">OneTime</option>
                 </Form.Select>
-                {/* --- END OF THE FIX --- */}
               </Form.Group>
             </Col>
              <Col md={6}><Form.Group><Form.Label>Vehicle Type (opt)</Form.Label><Form.Control value={form.vehicle_type} onChange={e => updateForm('vehicle_type', e.target.value)} placeholder="LMV / MC" /></Form.Group></Col>

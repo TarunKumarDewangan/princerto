@@ -3,6 +3,22 @@ import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
+// --- START OF NEW CODE ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return '';
+    } catch (e) {
+        return '';
+    }
+};
+// --- END OF NEW CODE ---
+
 export default function VehicleFitnessEditModal({ show, onHide, record, onUpdated }) {
   const [form, setForm] = useState({ certificate_number: '', issue_date: '', expiry_date: '' });
   const [file, setFile] = useState(null);
@@ -11,12 +27,15 @@ export default function VehicleFitnessEditModal({ show, onHide, record, onUpdate
 
   useEffect(() => {
     if (record) {
+      // --- START OF THE FIX ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         certificate_number: record.certificate_number || '',
-        issue_date: (record.issue_date || '').substring(0, 10),
-        expiry_date: (record.expiry_date || '').substring(0, 10),
+        issue_date: formatDateForInput(record.issue_date),
+        expiry_date: formatDateForInput(record.expiry_date),
       });
-      setFile(null); // Reset file state when a new record is passed in
+      // --- END OF THE FIX ---
+      setFile(null);
       setError('');
     }
   }, [record]);
@@ -30,17 +49,13 @@ export default function VehicleFitnessEditModal({ show, onHide, record, onUpdate
     setError('');
 
     const formData = new FormData();
-    formData.append('certificate_number', form.certificate_number);
-    formData.append('issue_date', form.issue_date);
-    formData.append('expiry_date', form.expiry_date);
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
     if (file) {
       formData.append('file', file);
     }
-    // Tell Laravel we are performing an update
     formData.append('_method', 'PUT');
 
     try {
-      // Use POST for FormData, Laravel will treat it as PUT
       await api.post(`/fitnesses/${record.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -61,35 +76,60 @@ export default function VehicleFitnessEditModal({ show, onHide, record, onUpdate
   return (
     <Modal show={show} onHide={onHide} centered>
       <Form onSubmit={handleSubmit}>
-        <Modal.Header closeButton><Modal.Title>Edit Fitness Record</Modal.Title></Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Fitness Record</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-3">
             <Col md={12}>
               <Form.Group>
                 <Form.Label>Certificate Number *</Form.Label>
-                <Form.Control value={form.certificate_number} onChange={e => updateForm('certificate_number', e.target.value.toUpperCase())} required />
+                <Form.Control
+                  value={form.certificate_number}
+                  onChange={e => updateForm('certificate_number', e.target.value.toUpperCase())}
+                  required
+                />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Issue Date *</Form.Label>
-                <Form.Control type="date" value={form.issue_date} onChange={e => updateForm('issue_date', e.target.value)} required />
+                <Form.Control
+                  type="date"
+                  value={form.issue_date}
+                  onChange={e => updateForm('issue_date', e.target.value)}
+                  required
+                />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Expiry Date *</Form.Label>
-                <Form.Control type="date" value={form.expiry_date} onChange={e => updateForm('expiry_date', e.target.value)} required />
+                <Form.Control
+                  type="date"
+                  value={form.expiry_date}
+                  onChange={e => updateForm('expiry_date', e.target.value)}
+                  required
+                />
               </Form.Group>
             </Col>
             <Col md={12}>
               <Form.Group>
                 <Form.Label>Upload New Document (Optional)</Form.Label>
-                <Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} />
+                <Form.Control
+                  type="file"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
                 {record.file_path && !file && (
                   <div className="small mt-1">
-                    Current file: <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${record.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                    Current file: <a
+                      href={`${import.meta.env.VITE_API_BASE_URL}/storage/${record.file_path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
                   </div>
                 )}
               </Form.Group>
@@ -98,7 +138,9 @@ export default function VehicleFitnessEditModal({ show, onHide, record, onUpdate
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onHide}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
         </Modal.Footer>
       </Form>
     </Modal>

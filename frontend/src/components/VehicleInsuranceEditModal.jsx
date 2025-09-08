@@ -3,6 +3,22 @@ import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
+// --- START OF THE FIX (PART 1) ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return ''; // Return empty string if format is unexpected
+    } catch (e) {
+        return ''; // Return empty string on error
+    }
+};
+// --- END OF THE FIX (PART 1) ---
+
 export default function VehicleInsuranceEditModal({ show, onHide, insuranceRecord, onUpdated }) {
   const [form, setForm] = useState({
     insurance_type: '',
@@ -17,14 +33,17 @@ export default function VehicleInsuranceEditModal({ show, onHide, insuranceRecor
 
   useEffect(() => {
     if (insuranceRecord) {
+      // --- START OF THE FIX (PART 2) ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         insurance_type: insuranceRecord.insurance_type || '',
         company_name: insuranceRecord.company_name || '',
         policy_number: insuranceRecord.policy_number || '',
-        start_date: (insuranceRecord.start_date || '').substring(0, 10),
-        end_date: (insuranceRecord.end_date || '').substring(0, 10),
+        start_date: formatDateForInput(insuranceRecord.start_date),
+        end_date: formatDateForInput(insuranceRecord.end_date),
         status: insuranceRecord.status || 'active',
       });
+      // --- END OF THE FIX (PART 2) ---
       setError('');
     }
   }, [insuranceRecord]);

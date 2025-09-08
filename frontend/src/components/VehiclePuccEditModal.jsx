@@ -3,6 +3,22 @@ import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
+// --- START OF THE FIX (PART 1) ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return ''; // Return empty string if format is unexpected
+    } catch (e) {
+        return ''; // Return empty string on error
+    }
+};
+// --- END OF THE FIX (PART 1) ---
+
 export default function VehiclePuccEditModal({ show, onHide, puccRecord, onUpdated }) {
   const [form, setForm] = useState({
     pucc_number: '',
@@ -15,12 +31,15 @@ export default function VehiclePuccEditModal({ show, onHide, puccRecord, onUpdat
 
   useEffect(() => {
     if (puccRecord) {
+      // --- START OF THE FIX (PART 2) ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         pucc_number: puccRecord.pucc_number || '',
-        valid_from: (puccRecord.valid_from || '').substring(0, 10),
-        valid_until: (puccRecord.valid_until || '').substring(0, 10),
+        valid_from: formatDateForInput(puccRecord.valid_from),
+        valid_until: formatDateForInput(puccRecord.valid_until),
         status: puccRecord.status || 'active',
       });
+      // --- END OF THE FIX (PART 2) ---
       setError('');
     }
   }, [puccRecord]);

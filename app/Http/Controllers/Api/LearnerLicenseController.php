@@ -71,14 +71,19 @@ class LearnerLicenseController extends Controller
         return response()->json($rec, 201);
     }
 
-    public function show(LearnerLicense $learnerLicense)
+    // --- START OF THE FIX (1/3) ---
+    // The variable name is changed from $learnerLicense to $ll to match the route parameter {ll}.
+    public function show(LearnerLicense $ll)
     {
-        return $learnerLicense->load('citizen:id,name,mobile');
+        return $ll->load('citizen:id,name,mobile');
     }
+    // --- END OF THE FIX ---
 
-    public function update(Request $request, LearnerLicense $learnerLicense)
+    // --- START OF THE FIX (2/3) ---
+    // The variable name is changed from $learnerLicense to $ll.
+    public function update(Request $request, LearnerLicense $ll)
     {
-        $llId = $learnerLicense->id;
+        $llId = $ll->id; // Using the corrected variable
 
         $data = $request->validate([
             'll_no' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('learner_licenses', 'll_no')->ignore($llId)],
@@ -91,35 +96,37 @@ class LearnerLicenseController extends Controller
         ]);
 
         if ($request->hasFile('file')) {
-            if ($learnerLicense->file_path) {
-                Storage::disk('public')->delete($learnerLicense->file_path);
+            if ($ll->file_path) { // Using the corrected variable
+                Storage::disk('public')->delete($ll->file_path);
             }
             $path = $request->file('file')->store('ll_documents', 'public');
             $data['file_path'] = $path;
         }
 
-        $learnerLicense->update($data);
+        $ll->update($data); // Using the corrected variable
 
-        return $learnerLicense->fresh();
+        return $ll->fresh();
     }
+    // --- END OF THE FIX ---
 
-    public function destroy(LearnerLicense $learnerLicense)
+    // --- START OF THE FIX (3/3) ---
+    // The variable name is changed from $learnerLicense to $ll.
+    public function destroy(LearnerLicense $ll)
     {
         try {
-            if ($learnerLicense->file_path) {
+            if ($ll->file_path) { // Using the corrected variable
                 try {
-                    Storage::disk('public')->delete($learnerLicense->file_path);
+                    Storage::disk('public')->delete($ll->file_path);
                 } catch (\Throwable $e) {
                     Log::warning('LL file delete failed: ' . $e->getMessage());
                 }
             }
 
-            $learnerLicense->delete();
+            $ll->delete(); // This will now delete the correct record from the database.
 
             return response()->json(['message' => 'Learner License record deleted successfully.']);
 
         } catch (QueryException $e) {
-            // Handle foreign key constraint violations gracefully
             if ((int) $e->getCode() === 23000) {
                 return response()->json([
                     'message' => 'Cannot delete this record because it is referenced by other records.'
@@ -133,4 +140,5 @@ class LearnerLicenseController extends Controller
             return response()->json(['message' => 'Failed to delete record. Please check server logs.'], 500);
         }
     }
+    // --- END OF THE FIX ---
 }

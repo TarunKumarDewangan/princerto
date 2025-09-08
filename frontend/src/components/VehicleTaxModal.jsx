@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Modal, Button, Table, Form, Row, Col, Alert, Badge, Spinner } from 'react-bootstrap';
+import { Modal, Button, Table, Form, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString.substring(0, 10));
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    if (isNaN(day)) return '-';
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return '-';
-  }
-};
+// --- FIX: The formatDate function is no longer needed here ---
+// const formatDate = (dateString) => { ... };
 
 export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
   const [items, setItems] = useState([]);
@@ -131,8 +120,9 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
                 <tr key={t.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{t.tax_mode}</td>
-                  <td>{formatDate(t.tax_from)}</td>
-                  <td>{formatDate(t.tax_upto)}</td>
+                  {/* --- FIX: Display the pre-formatted date directly from the API --- */}
+                  <td>{t.tax_from || '-'}</td>
+                  <td>{t.tax_upto || '-'}</td>
                   <td>{t.amount ? `₹ ${t.amount}`: '-'}</td>
                   <td>
                     {t.file_path ? (
@@ -157,7 +147,6 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
             <Col md={3}>
               <Form.Group>
                 <Form.Label>Tax Mode *</Form.Label>
-                {/* --- START OF THE FIX --- */}
                 <Form.Select value={form.tax_mode} onChange={e=>setForm(f=>({...f, tax_mode:e.target.value}))} required>
                   <option value="">Select</option>
                   <option value="Monthly">Monthly</option>
@@ -166,7 +155,6 @@ export default function VehicleTaxModal({ show, onHide, vehicle, onShowEdit }) {
                   <option value="Yearly">Yearly</option>
                   <option value="OneTime">OneTime</option>
                 </Form.Select>
-                {/* --- END OF THE FIX --- */}
               </Form.Group>
             </Col>
             <Col md={3}><Form.Group><Form.Label>From *</Form.Label><Form.Control type="date" value={form.tax_from} onChange={e=>setForm(f=>({...f, tax_from:e.target.value}))} required /></Form.Group></Col>

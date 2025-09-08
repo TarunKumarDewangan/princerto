@@ -3,19 +3,8 @@ import { Modal, Button, Table, Form, Row, Col, Alert, Spinner, Badge } from 'rea
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString.substring(0, 10));
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    if (isNaN(day)) return '-';
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return '-';
-  }
-};
+// --- FIX: The formatDate function is no longer needed here ---
+// const formatDate = (dateString) => { ... };
 
 export default function VehiclePuccModal({ show, onHide, vehicle, onShowEdit }) {
   const [items, setItems] = useState([]);
@@ -108,8 +97,9 @@ export default function VehiclePuccModal({ show, onHide, vehicle, onShowEdit }) 
                 <tr key={pucc.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{pucc.pucc_number}</td>
-                  <td>{formatDate(pucc.valid_from)}</td>
-                  <td>{formatDate(pucc.valid_until)}</td>
+                  {/* --- FIX: Display the pre-formatted date directly from the API --- */}
+                  <td>{pucc.valid_from || '-'}</td>
+                  <td>{pucc.valid_until || '-'}</td>
                   <td><Badge bg={pucc.status === 'active' ? 'success' : 'danger'}>{pucc.status}</Badge></td>
                   <td>
                     <Button variant="outline-primary" size="sm" className="me-1" onClick={() => onShowEdit(pucc)}>Edit</Button>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon; // --- FIX: Import the Carbon library ---
 
 class VehiclePermit extends Model
 {
@@ -14,9 +15,27 @@ class VehiclePermit extends Model
         'issue_date',
         'expiry_date',
         'permit_number',
-        'file_path', // Add this
+        'file_path',
     ];
     protected $casts = ['issue_date' => 'date', 'expiry_date' => 'date'];
+
+    // --- START OF THE FIX ---
+    /**
+     * Get the issue_date in d-m-Y format for the API.
+     */
+    public function getIssueDateAttribute($value)
+    {
+        return $value ? Carbon::parse($value)->format('d-m-Y') : null;
+    }
+
+    /**
+     * Get the expiry_date in d-m-Y format for the API.
+     */
+    public function getExpiryDateAttribute($value)
+    {
+        return $value ? Carbon::parse($value)->format('d-m-Y') : null;
+    }
+    // --- END OF THE FIX ---
 
     public function vehicle()
     {

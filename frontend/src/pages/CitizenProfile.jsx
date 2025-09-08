@@ -27,6 +27,7 @@ import { toast } from 'react-toastify';
 import SendMessageModal from '../components/SendMessageModal';
 import VehicleTaxEditModal from '../components/VehicleTaxEditModal';
 
+// This function is still needed for other dates like Date of Birth, so we keep it.
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -153,7 +154,8 @@ export default function CitizenProfile() {
     if (window.confirm(`Send an expiry notification to ${citizen.name} for LL No ${llRecord.ll_no}?`)) {
       setSendingNoticeId(llRecord.id);
       try {
-        const message = `Your LLNO ${llRecord.ll_no} Expiring/Expired on date ${formatDate(llRecord.expiry_date)} contact harshit-online for further process`;
+        // --- FIX: Use the pre-formatted date directly from the record ---
+        const message = `Your LLNO ${llRecord.ll_no} Expiring/Expired on date ${llRecord.expiry_date} contact harshit-online for further process`;
         await api.post(`/citizens/${citizen.id}/send-message`, { message });
         toast.success(`Expiry notification sent for LL No ${llRecord.ll_no}.`);
       } catch (err) {
@@ -181,14 +183,12 @@ export default function CitizenProfile() {
   const handleDLEdit = (record) => { setEditingDL(record); setShowDLEdit(true); };
   const handleVehEdit = (record) => { setEditingVeh(record); setShowVehEdit(true); };
 
-  // --- Robust DELETE helpers (with method-spoofing fallback) ---
   const deleteWithFallback = async (url) => {
     try {
       await api.delete(url);
       return true;
     } catch (e) {
       const status = e?.response?.status;
-      // 405: some hosts block DELETE/PUT/PATCH
       if (status === 405) {
         try {
           await api.post(`${url}?_method=DELETE`);
@@ -244,7 +244,6 @@ export default function CitizenProfile() {
       explainDeleteError(e, 'Vehicle delete failed.');
     }
   };
-  // --- end delete helpers ---
 
   const handleShowInsurance = (vehicle) => { setInsuranceVehicle(vehicle); setShowInsurance(true); };
   const handleShowInsuranceEdit = (insuranceRecord) => { setEditingInsurance(insuranceRecord); setShowInsuranceEdit(true); };
@@ -323,8 +322,11 @@ export default function CitizenProfile() {
                       <td>{(ll.meta?.from ?? 1) + i}</td>
                       <td>{r.ll_no}</td>
                       <td>{r.application_no || '-'}</td>
-                      <td>{formatDate(r.issue_date)}</td>
-                      <td>{formatDate(r.expiry_date)}</td>
+                      {/* --- START OF THE FIX --- */}
+                      {/* Display the pre-formatted date string directly from the API */}
+                      <td>{r.issue_date || '-'}</td>
+                      <td>{r.expiry_date || '-'}</td>
+                      {/* --- END OF THE FIX --- */}
                       <td>{r.vehicle_class || '-'}</td>
                       <td>{r.office || '-'}</td>
                       <td>
@@ -370,8 +372,11 @@ export default function CitizenProfile() {
                       <td>{(dl.meta?.from ?? 1) + i}</td>
                       <td>{r.dl_no}</td>
                       <td>{r.application_no || '-'}</td>
-                      <td>{formatDate(r.issue_date)}</td>
-                      <td>{formatDate(r.expiry_date)}</td>
+                      {/* --- START OF THE FIX --- */}
+                      {/* Display the pre-formatted date string directly from the API */}
+                      <td>{r.issue_date || '-'}</td>
+                      <td>{r.expiry_date || '-'}</td>
+                      {/* --- END OF THE FIX --- */}
                       <td>{r.vehicle_class || '-'}</td>
                       <td>{r.office || '-'}</td>
                       <td>
@@ -469,8 +474,10 @@ export default function CitizenProfile() {
                           <tr key={item.id}>
                             <td>{item.ll_no}</td>
                             <td>{item.application_no || '-'}</td>
-                            <td>{formatDate(item.issue_date)}</td>
-                            <td>{formatDate(item.expiry_date)}</td>
+                            {/* --- START OF THE FIX --- */}
+                            <td>{item.issue_date || '-'}</td>
+                            <td>{item.expiry_date || '-'}</td>
+                            {/* --- END OF THE FIX --- */}
                             <td>{item.vehicle_class || '-'}</td>
                           </tr>
                         ))}
@@ -494,8 +501,10 @@ export default function CitizenProfile() {
                           <tr key={item.id}>
                             <td>{item.dl_no}</td>
                             <td>{item.application_no || '-'}</td>
-                            <td>{formatDate(item.issue_date)}</td>
-                            <td>{formatDate(item.expiry_date)}</td>
+                            {/* --- START OF THE FIX --- */}
+                            <td>{item.issue_date || '-'}</td>
+                            <td>{item.expiry_date || '-'}</td>
+                            {/* --- END OF THE FIX --- */}
                             <td>{item.vehicle_class || '-'}</td>
                           </tr>
                         ))}
@@ -547,7 +556,8 @@ export default function CitizenProfile() {
                                   <td>{i.policy_number}</td>
                                   <td>{i.company_name}</td>
                                   <td>{i.insurance_type}</td>
-                                  <td>{formatDate(i.end_date)}</td>
+                                  {/* --- FIX: Display pre-formatted date --- */}
+                                  <td>{i.end_date || '-'}</td>
                                   <td><Badge bg={i.status === 'active' ? 'success' : 'danger'}>{i.status}</Badge></td>
                                   <td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowInsuranceEdit(i)}>Edit</Button></td>
                                 </tr>
@@ -569,8 +579,9 @@ export default function CitizenProfile() {
                               {v.puccs.map(p => (
                                 <tr key={p.id}>
                                   <td>{p.pucc_number}</td>
-                                  <td>{formatDate(p.valid_from)}</td>
-                                  <td>{formatDate(p.valid_until)}</td>
+                                  {/* --- FIX: Display pre-formatted dates --- */}
+                                  <td>{p.valid_from || '-'}</td>
+                                  <td>{p.valid_until || '-'}</td>
                                   <td><Badge bg={p.status === 'active' ? 'success' : 'danger'}>{p.status}</Badge></td>
                                   <td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowPuccEdit(p)}>Edit</Button></td>
                                 </tr>
@@ -592,8 +603,9 @@ export default function CitizenProfile() {
                               {v.fitnesses.map(f => (
                                 <tr key={f.id}>
                                   <td>{f.certificate_number}</td>
-                                  <td>{formatDate(f.issue_date)}</td>
-                                  <td>{formatDate(f.expiry_date)}</td>
+                                  {/* --- FIX: Display pre-formatted dates --- */}
+                                  <td>{f.issue_date || '-'}</td>
+                                  <td>{f.expiry_date || '-'}</td>
                                   <td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowFitnessEdit(f)}>Edit</Button></td>
                                 </tr>
                               ))}
@@ -614,8 +626,9 @@ export default function CitizenProfile() {
                               {v.taxes.map(t => (
                                 <tr key={t.id}>
                                   <td>{t.tax_mode}</td>
-                                  <td>{formatDate(t.tax_from)}</td>
-                                  <td>{formatDate(t.tax_upto)}</td>
+                                  {/* --- FIX: Display pre-formatted dates --- */}
+                                  <td>{t.tax_from || '-'}</td>
+                                  <td>{t.tax_upto || '-'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -635,8 +648,9 @@ export default function CitizenProfile() {
                               {v.permits.map(p => (
                                 <tr key={p.id}>
                                   <td>{p.permit_number}</td>
-                                  <td>{formatDate(p.issue_date)}</td>
-                                  <td>{formatDate(p.expiry_date)}</td>
+                                  {/* --- FIX: Display pre-formatted dates --- */}
+                                  <td>{p.issue_date || '-'}</td>
+                                  <td>{p.expiry_date || '-'}</td>
                                   <td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowPermitEdit(p)}>Edit</Button></td>
                                 </tr>
                               ))}
@@ -657,8 +671,9 @@ export default function CitizenProfile() {
                               {v.vltds.map(vl => (
                                 <tr key={vl.id}>
                                   <td>{vl.certificate_number}</td>
-                                  <td>{formatDate(vl.issue_date)}</td>
-                                  <td>{formatDate(vl.expiry_date)}</td>
+                                  {/* --- FIX: Display pre-formatted dates --- */}
+                                  <td>{vl.issue_date || '-'}</td>
+                                  <td>{vl.expiry_date || '-'}</td>
                                   <td className="text-end"><Button size="sm" variant="link" onClick={() => handleShowVltdEdit(vl)}>Edit</Button></td>
                                 </tr>
                               ))}

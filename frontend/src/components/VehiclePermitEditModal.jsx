@@ -3,6 +3,22 @@ import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
+// --- START OF THE FIX (PART 1) ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return ''; // Return empty string if format is unexpected
+    } catch (e) {
+        return ''; // Return empty string on error
+    }
+};
+// --- END OF THE FIX (PART 1) ---
+
 export default function VehiclePermitEditModal({ show, onHide, record, onUpdated }) {
   const [form, setForm] = useState({ permit_number: '', issue_date: '', expiry_date: '' });
   const [file, setFile] = useState(null);
@@ -11,11 +27,14 @@ export default function VehiclePermitEditModal({ show, onHide, record, onUpdated
 
   useEffect(() => {
     if (record) {
+      // --- START OF THE FIX (PART 2) ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         permit_number: record.permit_number || '',
-        issue_date: (record.issue_date || '').substring(0, 10),
-        expiry_date: (record.expiry_date || '').substring(0, 10),
+        issue_date: formatDateForInput(record.issue_date),
+        expiry_date: formatDateForInput(record.expiry_date),
       });
+      // --- END OF THE FIX (PART 2) ---
       setFile(null);
       setError('');
     }

@@ -3,20 +3,6 @@ import { Modal, Button, Table, Form, Row, Col, Alert, Spinner } from 'react-boot
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString.substring(0, 10));
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    if (isNaN(day)) return '-';
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return '-';
-  }
-};
-
 export default function VehicleFitnessModal({ show, onHide, vehicle, onShowEdit }) {
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -29,13 +15,17 @@ export default function VehicleFitnessModal({ show, onHide, vehicle, onShowEdit 
 
   const load = async (page = 1) => {
     if (!vehicle) return;
-    setLoading(true); setErr('');
+    setLoading(true);
+    setErr('');
     try {
       const { data } = await api.get(`/vehicles/${vehicle.id}/fitnesses`, { params: { page } });
-      setItems(data.data || []); setMeta(data.meta || null);
+      setItems(data.data || []);
+      setMeta(data.meta || null);
     } catch (e) {
       toast.error('Failed to load Fitness records.');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -50,7 +40,8 @@ export default function VehicleFitnessModal({ show, onHide, vehicle, onShowEdit 
 
   const submit = async (e) => {
     e.preventDefault();
-    setSaving(true); setErr('');
+    setSaving(true);
+    setErr('');
 
     const formData = new FormData();
     Object.keys(form).forEach(key => formData.append(key, form[key]));
@@ -64,18 +55,28 @@ export default function VehicleFitnessModal({ show, onHide, vehicle, onShowEdit 
       });
       toast.success('Fitness record added.');
       e.target.reset();
+      setForm({ certificate_number: '', issue_date: '', expiry_date: '' });
       setFile(null);
       load(1);
     } catch (e) {
       const msg = e?.response?.data?.message || 'Failed to save record.';
-      setErr(msg); toast.error(msg);
-    } finally { setSaving(false); }
+      setErr(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Delete this Fitness record?')) {
-      try { await api.delete(`/fitnesses/${id}`); toast.success('Record deleted.'); load(meta?.current_page || 1); }
-      catch (e) { toast.error(e?.response?.data?.message || 'Delete failed.'); }
+      try {
+        await api.delete(`/fitnesses/${id}`);
+        toast.success('Record deleted.');
+        load(meta?.current_page || 1);
+      }
+      catch (e) {
+        toast.error(e?.response?.data?.message || 'Delete failed.');
+      }
     }
   };
 
@@ -83,44 +84,129 @@ export default function VehicleFitnessModal({ show, onHide, vehicle, onShowEdit 
 
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton><Modal.Title>Fitness Details — {vehicle.registration_no}</Modal.Title></Modal.Header>
+      <Modal.Header closeButton>
+        <Modal.Title>Fitness Details — {vehicle.registration_no}</Modal.Title>
+      </Modal.Header>
       <Modal.Body>
         {err && <Alert variant="danger">{err}</Alert>}
         <div className="table-responsive mb-4">
           <Table bordered hover size="sm">
-            <thead><tr><th>#</th><th>Certificate No.</th><th>Issue Date</th><th>Expiry Date</th><th>Document</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Certificate No.</th>
+                <th>Issue Date</th>
+                <th>Expiry Date</th>
+                <th>Document</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              {loading && <tr><td colSpan={6} className="text-center"><Spinner size="sm" /></td></tr>}
-              {!loading && items.length === 0 && <tr><td colSpan={6} className="text-center">No records found.</td></tr>}
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="text-center">
+                    <Spinner size="sm" />
+                  </td>
+                </tr>
+              )}
+              {!loading && items.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center">No records found.</td>
+                </tr>
+              )}
               {!loading && items.map((item, i) => (
                 <tr key={item.id}>
                   <td>{(meta?.from ?? 1) + i}</td>
                   <td>{item.certificate_number}</td>
-                  <td>{formatDate(item.issue_date)}</td>
-                  <td>{formatDate(item.expiry_date)}</td>
+                  {/* --- START OF THE FIX --- */}
+                  {/* Directly use the pre-formatted date from the API */}
+                  <td>{item.issue_date || '-'}</td>
+                  <td>{item.expiry_date || '-'}</td>
+                  {/* --- END OF THE FIX --- */}
                   <td>
                     {item.file_path ? (
-                      <a href={`${import.meta.env.VITE_API_BASE_URL}/storage/${item.file_path}`} target="_blank" rel="noopener noreferrer">View</a>
+                      <a
+                        href={`${import.meta.env.VITE_API_BASE_URL}/storage/${item.file_path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </a>
                     ) : 'N/A'}
                   </td>
                   <td>
-                    <Button variant="outline-primary" size="sm" className="me-1" onClick={() => onShowEdit(item)}>Edit</Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(item.id)}>Delete</Button>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      className="me-1"
+                      onClick={() => onShowEdit(item)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleDelete(item.id)}
+                    >
+                      Delete
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
         </div>
+
         <h5 className="mb-3">Add New Fitness Certificate</h5>
         <Form onSubmit={submit}>
           <Row className="g-3">
-            <Col md={12}><Form.Group><Form.Label>Certificate Number *</Form.Label><Form.Control value={form.certificate_number} onChange={e => updateForm('certificate_number', e.target.value.toUpperCase())} required /></Form.Group></Col>
-            <Col md={6}><Form.Group><Form.Label>Issue Date *</Form.Label><Form.Control type="date" value={form.issue_date} onChange={e => updateForm('issue_date', e.target.value)} required /></Form.Group></Col>
-            <Col md={6}><Form.Group><Form.Label>Expiry Date *</Form.Label><Form.Control type="date" value={form.expiry_date} onChange={e => updateForm('expiry_date', e.target.value)} required /></Form.Group></Col>
-            <Col md={12}><Form.Group><Form.Label>Upload Document (Optional)</Form.Label><Form.Control type="file" onChange={(e) => setFile(e.target.files[0])} /></Form.Group></Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Certificate Number *</Form.Label>
+                <Form.Control
+                  value={form.certificate_number}
+                  onChange={e => updateForm('certificate_number', e.target.value.toUpperCase())}
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Issue Date *</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.issue_date}
+                  onChange={e => updateForm('issue_date', e.target.value)}
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Expiry Date *</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={form.expiry_date}
+                  onChange={e => updateForm('expiry_date', e.target.value)}
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label>Upload Document (Optional)</Form.Label>
+                <Form.Control
+                  type="file"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </Form.Group>
+            </Col>
           </Row>
-          <div className="text-end mt-3"><Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add Fitness'}</Button></div>
+          <div className="text-end mt-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving...' : 'Add Fitness'}
+            </Button>
+          </div>
         </Form>
       </Modal.Body>
     </Modal>

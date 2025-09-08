@@ -17,6 +17,22 @@ const vehicleClassMap = {
 };
 const officeList = ["CG-04: Raipur", "CG-05: Dhamtari", "CG-06: Mahasamund", "CG-07: Durg", "CG-08: Rajnandgaon", "CG-09: Kabirdham (Kawardha)", "CG-10: Bilaspur", "CG-11: Janjgir-Champa", "CG-12: Korba", "CG-13: Raigarh", "CG-14: Jashpur", "CG-15: Surguja (Ambikapur)", "CG-16: Koriya (Baikunthpur)", "CG-17: Bastar (Jagdalpur)", "CG-18: Dantewada", "CG-19: Kanker", "CG-20: Bijapur", "CG-21: Narayanpur", "CG-22: Baloda Bazar", "CG-23: Gariaband", "CG-24: Balod", "CG-25: Bemetara", "CG-26: Sukma", "CG-27: Kondagaon", "CG-28: Mungeli", "CG-29: Surajpur", "CG-30: Balrampur-Ramanujganj", "CG-31: Gaurela-Pendra-Marwahi"];
 
+// --- START OF THE FIX (PART 1) ---
+// Helper function to convert "dd-mm-yyyy" from API to "yyyy-mm-dd" for the input field.
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const [day, month, year] = dateString.split('-');
+        if (day && month && year) {
+            return `${year}-${month}-${day}`;
+        }
+        return ''; // Return empty string if format is unexpected
+    } catch (e) {
+        return ''; // Return empty string on error
+    }
+};
+// --- END OF THE FIX (PART 1) ---
+
 export default function DLEditModal({ show, onHide, dlRecord, onUpdated }) {
   const [form, setForm] = useState({
     dl_no: '',
@@ -37,14 +53,17 @@ export default function DLEditModal({ show, onHide, dlRecord, onUpdated }) {
         return acc;
       }, {});
 
+      // --- START OF THE FIX (PART 2) ---
+      // Use the new helper function to correctly format the dates for the form.
       setForm({
         dl_no: dlRecord.dl_no || '',
         application_no: dlRecord.application_no || '',
-        issue_date: (dlRecord.issue_date || '').substring(0, 10),
-        expiry_date: (dlRecord.expiry_date || '').substring(0, 10),
+        issue_date: formatDateForInput(dlRecord.issue_date),
+        expiry_date: formatDateForInput(dlRecord.expiry_date),
         vehicle_class: selectedClasses,
         office: dlRecord.office || '',
       });
+      // --- END OF THE FIX (PART 2) ---
       setFile(null);
       setError('');
     }
@@ -53,6 +72,7 @@ export default function DLEditModal({ show, onHide, dlRecord, onUpdated }) {
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
   useEffect(() => {
+    // This calculation logic remains correct.
     if (form.issue_date) {
       try {
         const issueDate = new Date(form.issue_date);

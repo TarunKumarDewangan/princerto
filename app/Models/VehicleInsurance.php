@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon; // --- FIX: Import the Carbon library ---
 
 class VehicleInsurance extends Model
 {
@@ -20,13 +21,31 @@ class VehicleInsurance extends Model
         'start_date',
         'end_date',
         'status',
-        'file_path', // Add this
+        'file_path',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
     ];
+
+    // --- START OF THE FIX ---
+    /**
+     * Get the start_date in d-m-Y format for the API.
+     */
+    public function getStartDateAttribute($value)
+    {
+        return $value ? Carbon::parse($value)->format('d-m-Y') : null;
+    }
+
+    /**
+     * Get the end_date in d-m-Y format for the API.
+     */
+    public function getEndDateAttribute($value)
+    {
+        return $value ? Carbon::parse($value)->format('d-m-Y') : null;
+    }
+    // --- END OF THE FIX ---
 
     public function vehicle()
     {
