@@ -8,14 +8,15 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
 
-    //->dailyAt('09:00')
+    //
+    //->everyMinute()
     protected $commands = [
         Commands\SendExpiryNotifications::class,
     ];
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('notifications:send-expiries')
-            ->everyMinute()
+            ->dailyAt('09:00')
             ->timezone('Asia/Kolkata')
             ->appendOutputTo(storage_path('logs/scheduler.log'))
             ->before(function () {
