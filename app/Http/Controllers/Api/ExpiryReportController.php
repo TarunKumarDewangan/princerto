@@ -52,7 +52,6 @@ class ExpiryReportController extends Controller
         $allExpiries = new Collection();
         $authUser = $request->user()->load('branch');
 
-        // Add debug logging
         Log::info('Expiry Report Request', [
             'page' => $page,
             'per_page' => $perPage,
@@ -65,12 +64,14 @@ class ExpiryReportController extends Controller
 
         $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName, $authUser, $docType);
 
-        // Remove duplicates and ensure clean data
         $uniqueExpiries = $allExpiries->unique(function ($item) {
             return $item['type'] . '|' . $item['identifier'] . '|' . $item['citizen_id'];
         });
 
-        $sortedExpiries = $uniqueExpiries->sortBy('expiry_date')->values();
+        // The date from the model is DD-MM-YYYY. To sort correctly, we need to convert it to YYYY-MM-DD.
+        $sortedExpiries = $uniqueExpiries->sortBy(function ($item) {
+            return Carbon::createFromFormat('d-m-Y', $item['expiry_date'])->format('Y-m-d');
+        })->values();
 
         Log::info('Expiry Report Data', [
             'total_items' => $sortedExpiries->count(),
@@ -79,7 +80,6 @@ class ExpiryReportController extends Controller
             'offset' => ($page - 1) * $perPage
         ]);
 
-        // Fixed pagination using slice with proper values conversion
         $paginatedItems = $sortedExpiries->slice(($page - 1) * $perPage, $perPage)->values();
 
         $paginator = new LengthAwarePaginator(
@@ -125,7 +125,10 @@ class ExpiryReportController extends Controller
                         'owner_name' => $ll->citizen->name,
                         'owner_mobile' => $ll->citizen->mobile,
                         'identifier' => $ll->ll_no,
-                        'expiry_date' => $ll->expiry_date->format('Y-m-d'),
+                        // --- START OF THE FIX ---
+                        // Use the expiry_date attribute directly, as it is already a formatted string.
+                        'expiry_date' => $ll->expiry_date,
+                        // --- END OF THE FIX ---
                         'citizen_id' => $ll->citizen_id,
                     ]);
                 }
@@ -148,7 +151,10 @@ class ExpiryReportController extends Controller
                         'owner_name' => $dl->citizen->name,
                         'owner_mobile' => $dl->citizen->mobile,
                         'identifier' => $dl->dl_no,
-                        'expiry_date' => $dl->expiry_date->format('Y-m-d'),
+                        // --- START OF THE FIX ---
+                        // Use the expiry_date attribute directly, as it is already a formatted string.
+                        'expiry_date' => $dl->expiry_date,
+                        // --- END OF THE FIX ---
                         'citizen_id' => $dl->citizen_id,
                     ]);
                 }
@@ -194,7 +200,10 @@ class ExpiryReportController extends Controller
                         'owner_name' => $item->vehicle->citizen->name,
                         'owner_mobile' => $item->vehicle->citizen->mobile,
                         'identifier' => $item->vehicle->registration_no,
-                        'expiry_date' => $item->{$doc['date_col']}->format('Y-m-d'),
+                        // --- START OF THE FIX ---
+                        // Use the date attribute directly, as it is already a formatted string from its model.
+                        'expiry_date' => $item->{$doc['date_col']},
+                        // --- END OF THE FIX ---
                         'citizen_id' => $item->vehicle->citizen_id,
                     ]);
                 }

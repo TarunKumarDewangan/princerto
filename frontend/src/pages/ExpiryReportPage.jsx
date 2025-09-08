@@ -4,18 +4,10 @@ import { Container, Card, Form, Row, Col, Button, Table, Alert, Spinner, Badge, 
 import { toast } from 'react-toastify';
 import api from '../services/apiClient';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  } catch (e) {
-    return dateString;
-  }
-};
+// --- START OF THE FIX (PART 1) ---
+// The old `formatDate` function is completely removed, as it is no longer needed.
+// The API now sends the date pre-formatted in the correct DD-MM-YYYY format.
+// --- END OF THE FIX (PART 1) ---
 
 const documentTypes = [
     'Learner License', 'Driving License', 'Insurance', 'PUCC',
@@ -45,20 +37,14 @@ export default function ExpiryReportPage() {
       const filtersToUse = currentFilters || filters;
       const params = { ...filtersToUse, page };
 
-      // Remove empty parameters
       Object.keys(params).forEach(key => {
         if (params[key] === '' || params[key] === null || params[key] === undefined) {
           delete params[key];
         }
       });
 
-      console.log('Fetching page:', page, 'with params:', params);
-
       const { data } = await api.get('/reports/expiries', { params });
 
-      console.log('API Response:', data);
-
-      // Handle the response
       const responseItems = Array.isArray(data.data) ? data.data : [];
       const responseMeta = {
         current_page: data.current_page || page,
@@ -70,8 +56,6 @@ export default function ExpiryReportPage() {
         prev_page_url: data.prev_page_url,
         next_page_url: data.next_page_url
       };
-
-      console.log('Processed items:', responseItems.length, 'for page:', page);
 
       setItems(responseItems);
       setMeta(responseMeta);
@@ -90,7 +74,6 @@ export default function ExpiryReportPage() {
     }
   }, [filters]);
 
-  // Initial load
   useEffect(() => {
     fetchExpiries(1, filters);
   }, []);
@@ -128,11 +111,9 @@ export default function ExpiryReportPage() {
 
   const goPage = (p) => {
     if (!p || p < 1 || !meta || p > meta.last_page || p === currentPage || loading) return;
-    console.log('Navigating to page:', p);
     fetchExpiries(p, filters);
   };
 
-  // Calculate row numbers properly
   const getRowNumber = (index) => {
     if (!meta || !meta.from) {
       return (currentPage - 1) * (meta?.per_page || 15) + index + 1;
@@ -238,7 +219,6 @@ export default function ExpiryReportPage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Debug info - remove in production */}
       {process.env.NODE_ENV === 'development' && meta && (
         <Alert variant="info">
           <small>
@@ -297,7 +277,10 @@ export default function ExpiryReportPage() {
                   </Badge>
                 </td>
                 <td>{item.identifier || 'N/A'}</td>
-                <td>{formatDate(item.expiry_date)}</td>
+                {/* --- START OF THE FIX (PART 2) --- */}
+                {/* Display the pre-formatted 'expiry_date' string directly from the API */}
+                <td>{item.expiry_date || '-'}</td>
+                {/* --- END OF THE FIX (PART 2) --- */}
                 <td>{/* Actions column is empty as requested */}</td>
               </tr>
             ))}
@@ -317,17 +300,14 @@ export default function ExpiryReportPage() {
               disabled={currentPage === 1 || loading}
             />
 
-            {/* Show page numbers */}
             {Array.from({ length: meta.last_page }, (_, i) => {
               const pageNum = i + 1;
-              // Show all pages if there are few, otherwise show current and adjacent
               const shouldShow = meta.last_page <= 7 ||
                                 Math.abs(pageNum - currentPage) <= 2 ||
                                 pageNum === 1 ||
                                 pageNum === meta.last_page;
 
               if (!shouldShow) {
-                // Show ellipsis for gaps
                 if (pageNum === currentPage - 3 || pageNum === currentPage + 3) {
                   return <Pagination.Ellipsis key={`ellipsis-${pageNum}`} />;
                 }
