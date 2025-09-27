@@ -23,6 +23,7 @@ class ExpiryReportController extends Controller
 {
     public function index(Request $request)
     {
+        // ... (this part of the method remains the same)
         $filters = $request->validate([
             'vehicle_no' => 'nullable|string|max:255',
             'start_date' => 'nullable|date',
@@ -33,12 +34,10 @@ class ExpiryReportController extends Controller
             'exact_date' => 'nullable|date',
             'doc_type' => 'nullable|string|max:255',
         ]);
-
         $vehicleNo = $filters['vehicle_no'] ?? null;
         $ownerName = $filters['owner_name'] ?? null;
         $exactDate = isset($filters['exact_date']) ? Carbon::parse($filters['exact_date']) : null;
         $docType = $filters['doc_type'] ?? null;
-
         if ($exactDate) {
             $startDate = $exactDate->copy()->startOfDay();
             $endDate = $exactDate->copy()->endOfDay();
@@ -46,60 +45,28 @@ class ExpiryReportController extends Controller
             $startDate = isset($filters['start_date']) ? Carbon::parse($filters['start_date']) : null;
             $endDate = isset($filters['end_date']) ? Carbon::parse($filters['end_date']) : null;
         }
-
         $page = $filters['page'] ?? 1;
         $perPage = $filters['per_page'] ?? 15;
         $allExpiries = new Collection();
         $authUser = $request->user()->load('branch');
-
-        Log::info('Expiry Report Request', [
-            'page' => $page,
-            'per_page' => $perPage,
-            'filters' => $filters
-        ]);
-
         if (empty($vehicleNo)) {
             $this->fetchLicenseExpiries($allExpiries, $startDate, $endDate, $ownerName, $authUser, $docType);
         }
-
         $this->fetchVehicleDocumentExpiries($allExpiries, $vehicleNo, $startDate, $endDate, $ownerName, $authUser, $docType);
-
         $uniqueExpiries = $allExpiries->unique(function ($item) {
-            return $item['type'] . '|' . $item['identifier'] . '|' . $item['citizen_id'];
+            return $item['type'] . '|' . $item['record_id']; // Use record_id for uniqueness
         });
-
-        // The date from the model is DD-MM-YYYY. To sort correctly, we need to convert it to YYYY-MM-DD.
         $sortedExpiries = $uniqueExpiries->sortBy(function ($item) {
             return Carbon::createFromFormat('d-m-Y', $item['expiry_date'])->format('Y-m-d');
         })->values();
-
-        Log::info('Expiry Report Data', [
-            'total_items' => $sortedExpiries->count(),
-            'page' => $page,
-            'per_page' => $perPage,
-            'offset' => ($page - 1) * $perPage
-        ]);
-
         $paginatedItems = $sortedExpiries->slice(($page - 1) * $perPage, $perPage)->values();
-
-        $paginator = new LengthAwarePaginator(
+        return new LengthAwarePaginator(
             $paginatedItems,
             $sortedExpiries->count(),
             $perPage,
             $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query()
-            ]
+            ['path' => $request->url(), 'query' => $request->query()]
         );
-
-        Log::info('Pagination Result', [
-            'current_page_items' => $paginatedItems->count(),
-            'total_items' => $sortedExpiries->count(),
-            'paginator_data_count' => count($paginator->items())
-        ]);
-
-        return $paginator;
     }
 
     private function fetchLicenseExpiries(Collection &$allExpiries, ?Carbon $startDate, ?Carbon $endDate, ?string $ownerName, User $authUser, ?string $docType)
@@ -115,22 +82,22 @@ class ExpiryReportController extends Controller
                 ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
-                ->whereNotNull('expiry_date')
-                ->get();
+                ->whereNotNull('expiry_date')->get();
 
             foreach ($learnerLicenses as $ll) {
                 if ($ll->citizen && $ll->expiry_date && $ll->ll_no) {
+                    // --- START OF THE FIX ---
+                    // Add the record_id and owner_mobile to the data sent to the frontend
                     $allExpiries->push([
+                        'record_id' => $ll->id, // Add the ID of the license record
                         'type' => 'Learner License',
                         'owner_name' => $ll->citizen->name,
-                        'owner_mobile' => $ll->citizen->mobile,
+                        'owner_mobile' => $ll->citizen->mobile, // Add the mobile number
                         'identifier' => $ll->ll_no,
-                        // --- START OF THE FIX ---
-                        // Use the expiry_date attribute directly, as it is already a formatted string.
                         'expiry_date' => $ll->expiry_date,
-                        // --- END OF THE FIX ---
                         'citizen_id' => $ll->citizen_id,
                     ]);
+                    // --- END OF THE FIX ---
                 }
             }
         }
@@ -141,22 +108,21 @@ class ExpiryReportController extends Controller
                 ->when($ownerName, fn($q) => $q->whereHas('citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate('expiry_date', '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate('expiry_date', '<=', $endDate))
-                ->whereNotNull('expiry_date')
-                ->get();
+                ->whereNotNull('expiry_date')->get();
 
             foreach ($drivingLicenses as $dl) {
                 if ($dl->citizen && $dl->expiry_date && $dl->dl_no) {
+                    // --- START OF THE FIX ---
                     $allExpiries->push([
+                        'record_id' => $dl->id, // Add the ID
                         'type' => 'Driving License',
                         'owner_name' => $dl->citizen->name,
-                        'owner_mobile' => $dl->citizen->mobile,
+                        'owner_mobile' => $dl->citizen->mobile, // Add the mobile number
                         'identifier' => $dl->dl_no,
-                        // --- START OF THE FIX ---
-                        // Use the expiry_date attribute directly, as it is already a formatted string.
                         'expiry_date' => $dl->expiry_date,
-                        // --- END OF THE FIX ---
                         'citizen_id' => $dl->citizen_id,
                     ]);
+                    // --- END OF THE FIX ---
                 }
             }
         }
@@ -190,22 +156,23 @@ class ExpiryReportController extends Controller
                 ->when($ownerName, fn($q) => $q->whereHas('vehicle.citizen', fn($subQ) => $subQ->where('name', 'like', "%{$ownerName}%")))
                 ->when($startDate, fn($q) => $q->whereDate($doc['date_col'], '>=', $startDate))
                 ->when($endDate, fn($q) => $q->whereDate($doc['date_col'], '<=', $endDate))
-                ->whereNotNull($doc['date_col'])
-                ->get();
+                ->whereNotNull($doc['date_col'])->get();
 
             foreach ($query as $item) {
                 if ($item->vehicle && $item->vehicle->citizen && $item->{$doc['date_col']} && $item->vehicle->registration_no) {
+                    // --- START OF THE FIX ---
                     $allExpiries->push([
+                        'record_id' => $item->id, // Add the ID of the document record
                         'type' => $doc['type_name'],
                         'owner_name' => $item->vehicle->citizen->name,
-                        'owner_mobile' => $item->vehicle->citizen->mobile,
+                        'owner_mobile' => $item->vehicle->citizen->mobile, // Add the mobile number
                         'identifier' => $item->vehicle->registration_no,
-                        // --- START OF THE FIX ---
-                        // Use the date attribute directly, as it is already a formatted string from its model.
                         'expiry_date' => $item->{$doc['date_col']},
-                        // --- END OF THE FIX ---
                         'citizen_id' => $item->vehicle->citizen_id,
+                        // Pass the full record to the frontend so the modal has all the data it needs
+                        'full_record' => $item->load('vehicle'),
                     ]);
+                    // --- END OF THE FIX ---
                 }
             }
         }
