@@ -34,5 +34,8 @@ return [
         'host' => env('CONIC_HOST_NAME'),
         'key' => env('CONIC_API_KEY'),
     ],
+    'inquiry' => [
+        'whatsapp_recipient' => env('INQUIRY_WHATSAPP_RECIPIENT'),
+    ],
 
 ];

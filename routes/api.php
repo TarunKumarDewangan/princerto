@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\DataExportController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CitizenExportController;
 use App\Http\Controllers\Api\DatabaseBackupController;
+use App\Http\Controllers\Api\DocumentInquiryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,7 @@ Route::post('/password/forgot', [PasswordResetController::class, 'requestLink'])
 Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
 
 Route::post('/service-requests', [ServiceRequestController::class, 'store']);
+Route::post('/document-inquiries', [DocumentInquiryController::class, 'store']);
 
 /*
 |--------------------------------------------------------------------------
@@ -149,5 +151,8 @@ Route::middleware(['auth:sanctum', 'throttle:api_high'])->group(function () {
         Route::post('/users/{user}/send-reset-link', [UserAdminController::class, 'sendResetLink']);
 
         Route::get('/branches', [BranchController::class, 'index']);
+        Route::get('/document-inquiries', [DocumentInquiryController::class, 'index']);
+        Route::patch('/document-inquiries/{inquiry}/status', [DocumentInquiryController::class, 'updateStatus']);
+        Route::get('/document-inquiries/export', [DocumentInquiryController::class, 'exportCsv']);
     });
 });

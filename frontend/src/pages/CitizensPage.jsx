@@ -382,7 +382,19 @@ export default function CitizensPage() {
             <Row className="g-2">
               <Col md={4}><Form.Control placeholder="Search name / father / email" value={q} onChange={e => setQ(e.target.value)} /></Col>
               <Col md={3}><Form.Control placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Col>
-              <Col md={2}><Form.Select value={perPage} onChange={e => setPerPage(Number(e.target.value))}><option value={10}>10 / page</option><option value={25}>25 / page</option><option value={50}>50 / page</option></Form.Select></Col>
+               <Col md={2}>
+                {/* --- START OF THE FIX --- */}
+                <Form.Select value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
+                  <option value={10}>10 / page</option>
+                  <option value={25}>25 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                  <option value={250}>250 / page</option>
+                  <option value={500}>500 / page</option>
+                  <option value={1000}>1000 / page</option>
+                </Form.Select>
+                {/* --- END OF THE FIX --- */}
+              </Col>
               <Col md="auto"><Button type="submit" disabled={loading}>{loading ? 'Loading...' : 'Search'}</Button></Col>
               <Col md="auto"><Button variant="outline-secondary" onClick={onReset} disabled={loading}>Reset</Button></Col>
             </Row>
