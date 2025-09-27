@@ -16,7 +16,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('notifications:send-expiries')
-            ->dailyAt('09:00')
+            ->everyMinute() //->dailyAt('09:00')
             ->timezone('Asia/Kolkata')
             ->appendOutputTo(storage_path('logs/scheduler.log'))
             ->before(function () {
