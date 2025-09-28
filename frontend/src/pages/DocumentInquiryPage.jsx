@@ -40,7 +40,6 @@ export default function DocumentInquiryPage() {
         setSubmitting(true);
 
         try {
-            // This payload now correctly sends 'name' and 'phone'
             const payload = {
                 name: name,
                 phone: phone,

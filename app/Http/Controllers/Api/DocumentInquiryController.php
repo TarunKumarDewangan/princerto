@@ -5,20 +5,21 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\RoleMiddleware;
 use App\Models\DocumentInquiry;
-use App\Services\WhatsAppService; // --- ADD THIS IMPORT ---
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse; // Import for CSV export
 
 class DocumentInquiryController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum')->only(['index', 'updateStatus']);
-        $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['index', 'updateStatus']);
+        // Protect the admin routes, but leave 'store' public
+        $this->middleware('auth:sanctum')->only(['index', 'updateStatus', 'exportCsv']);
+        $this->middleware(RoleMiddleware::class . ':admin,manager')->only(['index', 'updateStatus', 'exportCsv']);
     }
 
     public function index(Request $request)
     {
-        // ... (this method remains unchanged)
         $status = $request->query('status');
         $query = DocumentInquiry::query()
             ->when($status, function ($query, $status) {
@@ -28,8 +29,7 @@ class DocumentInquiryController extends Controller
         return $query->paginate(15);
     }
 
-    // --- START: MODIFIED STORE METHOD ---
-    public function store(Request $request, WhatsAppService $whatsAppService) // Inject the WhatsAppService
+    public function store(Request $request, WhatsAppService $whatsAppService)
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -39,41 +39,74 @@ class DocumentInquiryController extends Controller
             'vehicle_no' => 'nullable|string|max:20',
         ]);
 
-        // First, create the inquiry and save it to the database
         $inquiry = DocumentInquiry::create($data);
 
-        // Next, get the recipient number from the config file
         $recipient = config('services.inquiry.whatsapp_recipient');
-
-        // Only proceed if a recipient number is configured
         if ($recipient) {
-            // Convert the array of documents into a comma-separated string
             $documents = implode(', ', $inquiry->document_type);
-            $vehicleNumber = $inquiry->vehicle_no ?: 'N/A'; // Use 'N/A' if vehicle number is not provided
-
-            // Construct the notification message
+            $vehicleNumber = $inquiry->vehicle_no ?: 'N/A';
             $message = "New Document Inquiry Received:\n\n" .
                 "Name: " . $inquiry->name . "\n" .
                 "Phone: " . $inquiry->phone . "\n" .
                 "Vehicle No: " . $vehicleNumber . "\n" .
                 "Documents: " . $documents;
-
-            // Send the message using the service
             $whatsAppService->sendTextMessage($recipient, $message);
         }
 
         return response()->json($inquiry, 201);
     }
-    // --- END: MODIFIED STORE METHOD ---
 
     public function updateStatus(Request $request, DocumentInquiry $inquiry)
     {
-        // ... (this method remains unchanged)
         $data = $request->validate([
             'status' => 'required|string|in:new,contacted,resolved',
         ]);
         $inquiry->status = $data['status'];
         $inquiry->save();
         return response()->json($inquiry);
+    }
+
+    /**
+     * For Admins: Export the filtered inquiries to a CSV file.
+     */
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $status = $request->query('status');
+
+        $query = DocumentInquiry::query()
+            ->when($status, function ($query, $status) {
+                return $query->where('status', $status);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $filename = 'document-inquiries-export-' . now()->format('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['ID', 'Name', 'Mobile Number', 'Vehicle No', 'Document Types', 'Status', 'Inquiry Date']);
+
+            $query->chunk(500, function ($inquiries) use ($handle) {
+                foreach ($inquiries as $inquiry) {
+                    fputcsv($handle, [
+                        $inquiry->id,
+                        $inquiry->name,
+                        $inquiry->phone ? '+91' . $inquiry->phone : '-',
+                        $inquiry->vehicle_no,
+                        implode(', ', $inquiry->document_type),
+                        $inquiry->status,
+                        $inquiry->created_at->format('Y-m-d H:i:s'),
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

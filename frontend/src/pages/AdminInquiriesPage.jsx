@@ -19,7 +19,7 @@ export default function AdminInquiriesPage() {
     const [error, setError] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [updatingId, setUpdatingId] = useState(null);
-    const [isExporting, setIsExporting] = useState(false); // --- ADD NEW STATE FOR EXPORT BUTTON ---
+    const [isExporting, setIsExporting] = useState(false);
 
     const fetchInquiries = async (page = 1) => {
         setLoading(true);
@@ -28,12 +28,40 @@ export default function AdminInquiriesPage() {
             const { data } = await api.get(`/admin/document-inquiries`, {
                 params: { page, status: statusFilter }
             });
+
+            console.log('API Response:', data); // Debug log
+
             setInquiries(data.data || []);
-            setMeta(data.meta || null);
+
+            // Handle different Laravel pagination response structures
+            let paginationMeta = null;
+
+            if (data.meta) {
+                // Standard Laravel API resource pagination
+                paginationMeta = data.meta;
+            } else if (data.current_page) {
+                // Direct Laravel paginator response
+                paginationMeta = {
+                    current_page: data.current_page,
+                    last_page: data.last_page,
+                    per_page: data.per_page,
+                    total: data.total,
+                    from: data.from,
+                    to: data.to
+                };
+            } else if (data.pagination) {
+                // Custom pagination structure
+                paginationMeta = data.pagination;
+            }
+
+            console.log('Processed Meta:', paginationMeta); // Debug log
+            setMeta(paginationMeta);
+
         } catch (e) {
             const msg = e?.response?.data?.message || 'Failed to load inquiries.';
             setError(msg);
             toast.error(msg);
+            console.error('API Error:', e.response?.data); // Debug log
         } finally {
             setLoading(false);
         }
@@ -44,7 +72,7 @@ export default function AdminInquiriesPage() {
     }, [statusFilter]);
 
     const goPage = (p) => {
-        if (!meta || p < 1 || p > meta.last_page) return;
+        if (!meta || p < 1 || p > meta.last_page || p === meta.current_page || loading) return;
         fetchInquiries(p);
     };
 
@@ -61,35 +89,32 @@ export default function AdminInquiriesPage() {
         }
     };
 
-    // --- START: ADD NEW EXPORT HANDLER FUNCTION ---
     const handleExport = async () => {
         setIsExporting(true);
         toast.info('Generating CSV export... the download will begin shortly.');
         try {
             const response = await api.get('/admin/document-inquiries/export', {
-                params: { status: statusFilter }, // Export will respect the current filter
-                responseType: 'blob', // Important: tells axios to handle the response as a file
+                params: { status: statusFilter },
+                responseType: 'blob',
             });
 
-            // Create a temporary link to trigger the download
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
 
-            // Extract filename from response headers if available, otherwise use a default
             const contentDisposition = response.headers['content-disposition'];
             let filename = 'document-inquiries.csv';
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                if (filenameMatch.length === 2)
+                if (filenameMatch && filenameMatch.length === 2)
                     filename = filenameMatch[1];
             }
 
             link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
-            link.remove(); // Clean up the link element
-            window.URL.revokeObjectURL(url); // Clean up the blob URL
+            link.remove();
+            window.URL.revokeObjectURL(url);
 
         } catch (err) {
             toast.error('Failed to export data. Please try again.');
@@ -97,18 +122,47 @@ export default function AdminInquiriesPage() {
             setIsExporting(false);
         }
     };
-    // --- END: ADD NEW EXPORT HANDLER FUNCTION ---
+
+    // Simplified pagination rendering
+    const renderPaginationItems = () => {
+        console.log('renderPaginationItems called, meta:', meta); // Debug log
+
+        if (!meta || !meta.last_page || meta.last_page <= 1) {
+            console.log('No pagination needed'); // Debug log
+            return null;
+        }
+
+        const items = [];
+        const current = meta.current_page;
+        const total = meta.last_page;
+
+        // For debugging - always show simple pagination first
+        for (let i = 1; i <= Math.min(total, 10); i++) {
+            items.push(
+                <Pagination.Item
+                    key={i}
+                    active={i === current}
+                    onClick={() => goPage(i)}
+                    disabled={loading}
+                >
+                    {i}
+                </Pagination.Item>
+            );
+        }
+
+        return items;
+    };
+
+    console.log('Render state:', { meta, inquiries: inquiries.length, loading }); // Debug log
 
     return (
         <Container className="py-4">
-            {/* --- START: MODIFIED HEADER TO INCLUDE THE BUTTON --- */}
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h2 className="mb-0">Document Inquiries</h2>
                 <Button variant="outline-success" onClick={handleExport} disabled={isExporting}>
                     {isExporting ? 'Exporting...' : 'Download as CSV'}
                 </Button>
             </div>
-            {/* --- END: MODIFIED HEADER --- */}
 
             <Row className="mb-3">
                 <Col md={3}>
@@ -123,11 +177,13 @@ export default function AdminInquiriesPage() {
                     </Form.Group>
                 </Col>
             </Row>
+
             {error && <Alert variant="danger">{error}</Alert>}
             {loading && <div className="text-center"><Spinner animation="border" /></div>}
             {!loading && inquiries.length === 0 && (
                 <Alert variant="info">No inquiries found for the selected filter.</Alert>
             )}
+
             {!loading && inquiries.length > 0 && (
                 <div className="table-responsive">
                     <Table striped bordered hover size="sm">
@@ -145,7 +201,7 @@ export default function AdminInquiriesPage() {
                         <tbody>
                             {inquiries.map((req, idx) => (
                                 <tr key={req.id}>
-                                    <td>{(meta ? meta.from : 1) + idx}</td>
+                                    <td>{(meta?.from || 1) + idx}</td>
                                     <td>{req.name || 'N/A'}</td>
                                     <td>{req.phone || 'N/A'}</td>
                                     <td>{req.vehicle_no || '-'}</td>
@@ -157,9 +213,27 @@ export default function AdminInquiriesPage() {
                                     <td><StatusBadge status={req.status} /></td>
                                     <td>
                                         <ButtonGroup size="sm">
-                                            <Button variant="outline-primary" disabled={updatingId === req.id || req.status === 'new'} onClick={() => handleStatusUpdate(req.id, 'new')}>New</Button>
-                                            <Button variant="outline-info" disabled={updatingId === req.id || req.status === 'contacted'} onClick={() => handleStatusUpdate(req.id, 'contacted')}>Contacted</Button>
-                                            <Button variant="outline-success" disabled={updatingId === req.id || req.status === 'resolved'} onClick={() => handleStatusUpdate(req.id, 'resolved')}>Resolved</Button>
+                                            <Button
+                                                variant="outline-primary"
+                                                disabled={updatingId === req.id || req.status === 'new'}
+                                                onClick={() => handleStatusUpdate(req.id, 'new')}
+                                            >
+                                                New
+                                            </Button>
+                                            <Button
+                                                variant="outline-info"
+                                                disabled={updatingId === req.id || req.status === 'contacted'}
+                                                onClick={() => handleStatusUpdate(req.id, 'contacted')}
+                                            >
+                                                Contacted
+                                            </Button>
+                                            <Button
+                                                variant="outline-success"
+                                                disabled={updatingId === req.id || req.status === 'resolved'}
+                                                onClick={() => handleStatusUpdate(req.id, 'resolved')}
+                                            >
+                                                Resolved
+                                            </Button>
                                         </ButtonGroup>
                                     </td>
                                 </tr>
@@ -168,13 +242,52 @@ export default function AdminInquiriesPage() {
                     </Table>
                 </div>
             )}
-            {meta && meta.last_page > 1 && (
-                <div className="d-flex justify-content-end">
+
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+                <Alert variant="info">
+                    <small>
+                        Debug: Meta = {JSON.stringify(meta)} |
+                        Should show pagination: {meta && meta.last_page > 1 ? 'YES' : 'NO'}
+                    </small>
+                </Alert>
+            )}
+
+            {/* Pagination Section */}
+            {meta && meta.last_page && meta.last_page > 1 && (
+                <div className="d-flex justify-content-center mt-3">
                     <Pagination>
-                        <Pagination.Prev onClick={() => goPage(meta.current_page - 1)} disabled={meta.current_page === 1} />
-                        <Pagination.Item active>{meta.current_page}</Pagination.Item>
-                        <Pagination.Next onClick={() => goPage(meta.current_page + 1)} disabled={meta.current_page === meta.last_page} />
+                        <Pagination.First
+                            onClick={() => goPage(1)}
+                            disabled={meta.current_page === 1 || loading}
+                        />
+                        <Pagination.Prev
+                            onClick={() => goPage(meta.current_page - 1)}
+                            disabled={meta.current_page === 1 || loading}
+                        />
+
+                        {renderPaginationItems()}
+
+                        <Pagination.Next
+                            onClick={() => goPage(meta.current_page + 1)}
+                            disabled={meta.current_page === meta.last_page || loading}
+                        />
+                        <Pagination.Last
+                            onClick={() => goPage(meta.last_page)}
+                            disabled={meta.current_page === meta.last_page || loading}
+                        />
                     </Pagination>
+                </div>
+            )}
+
+            {meta && meta.total > 0 && (
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                    <small className="text-muted">
+                        Showing {meta.from || 0} to {meta.to || 0} of {meta.total} entries
+                    </small>
+                    <small className="text-muted">
+                        Page {meta.current_page || 1} of {meta.last_page || 1}
+                    </small>
                 </div>
             )}
         </Container>
