@@ -18,6 +18,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use App\Services\WhatsAppService;
 
 class ExpiryReportController extends Controller
 {
@@ -177,4 +178,80 @@ class ExpiryReportController extends Controller
             }
         }
     }
+    public function sendManualNotification(Request $request, WhatsAppService $whatsAppService)
+    {
+        $data = $request->validate([
+            'type' => 'required|string',
+            'owner_mobile' => 'required|string',
+            'identifier' => 'required|string',
+            'expiry_date' => 'required|string', // The date is already a 'd-m-Y' string
+        ]);
+
+        $docType = $data['type'];
+        $identifier = $data['identifier'];
+        $expiryDate = $data['expiry_date'];
+        $phoneNumber = '91' . $data['owner_mobile'];
+
+        $docName = '';
+        $messagePrefix = '';
+
+        // Determine the correct message template based on the document type
+        switch ($docType) {
+            case 'Insurance':
+                $docName = 'बीमा (Insurance)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'PUCC':
+                $docName = 'पी.यू.सी.सी. (PUCC)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'Fitness':
+                $docName = 'फिटनेस सर्टिफिकेट (Fitness)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'Permit':
+                $docName = 'परमिट (Permit)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'Tax':
+                $docName = 'रोड टैक्स (Road Tax)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'VLTd':
+                $docName = 'वी.एल.टी.डी. सर्टिफिकेट (VLTd)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'Speed Gov.':
+                $docName = 'स्पीड गवर्नर सर्टिफिकेट (Speed Governor)';
+                $messagePrefix = "आपके वाहन {$identifier} के ";
+                break;
+            case 'Learner License':
+                $messagePrefix = "आपके लर्नर लाइसेंस ({$identifier}) की वैधता";
+                break;
+            case 'Driving License':
+                $messagePrefix = "आपके ड्राइविंग लाइसेंस ({$identifier}) की वैधता";
+                break;
+            default:
+                return response()->json(['message' => 'Invalid document type provided.'], 422);
+        }
+
+        // Construct the final message
+        if ($docName) {
+            $message = "प्रिय ग्राहक\n" . $messagePrefix . $docName . " की वैधता\n{$expiryDate} को समाप्त हो जाएगा।";
+        } else {
+            $message = "प्रिय ग्राहक\n" . $messagePrefix . "\n{$expiryDate} को समाप्त हो जाएगा।";
+        }
+
+        $message .= "\n\nसमय पर नवीनीकरण कराएं और\nचालान/क्लेम रिजेक्शन से बचें\n\nHARSHIT RTO & INSURANCE SERVICES\n7000175067 | 7999664014";
+
+        // Send the message
+        $success = $whatsAppService->sendTextMessage($phoneNumber, $message);
+
+        if ($success) {
+            return response()->json(['message' => 'Notification sent successfully.']);
+        }
+
+        return response()->json(['message' => 'Failed to send notification via WhatsApp service.'], 500);
+    }
+    // --- END: ADDED NEW METHOD ---
 }

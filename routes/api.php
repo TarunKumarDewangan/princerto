@@ -67,6 +67,8 @@ Route::middleware(['auth:sanctum', 'throttle:api_high'])->group(function () {
     Route::get('/reports/expiries', [ExpiryReportController::class, 'index'])
         ->middleware(RoleMiddleware::class . ':admin,manager');
 
+    Route::post('/reports/expiries/send-notification', [ExpiryReportController::class, 'sendManualNotification'])
+        ->middleware(RoleMiddleware::class . ':admin,manager');
     // Export & Backups
     Route::get('/database-backups/download', [DatabaseBackupController::class, 'download']);
     Route::get('/export/tables', [DataExportController::class, 'index']);

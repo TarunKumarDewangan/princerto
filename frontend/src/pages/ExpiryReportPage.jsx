@@ -49,6 +49,7 @@ export default function ExpiryReportPage() {
   const [showSpeedGovernorEdit, setShowSpeedGovernorEdit] = useState(false);
   const [showTaxEdit, setShowTaxEdit] = useState(false);
   // --- END: ADD STATE FOR ALL EDIT MODALS ---
+   const [sendingNoticeId, setSendingNoticeId] = useState(null);
 
   const fetchExpiries = useCallback(async (page = 1, currentFilters = null) => {
     setLoading(true);
@@ -160,6 +161,30 @@ export default function ExpiryReportPage() {
   };
   // --- END: ADD HANDLER FUNCTION ---
 
+const handleSendNotice = async (item) => {
+    if (!window.confirm(`Are you sure you want to send an expiry notification to ${item.owner_name} (${item.owner_mobile})?`)) {
+        return;
+    }
+
+    const uniqueId = `${item.type}-${item.record_id}`;
+    setSendingNoticeId(uniqueId);
+
+    try {
+        const payload = {
+            type: item.type,
+            owner_mobile: item.owner_mobile,
+            identifier: item.identifier,
+            expiry_date: item.expiry_date,
+        };
+        await api.post('/reports/expiries/send-notification', payload);
+        toast.success('Notification sent successfully!');
+    } catch (err) {
+        const msg = err?.response?.data?.message || 'Failed to send notification.';
+        toast.error(msg);
+    } finally {
+        setSendingNoticeId(null);
+    }
+  };
   return (
     <Container className="py-4">
       <h3 className="mb-3">Documents Expiry Report</h3>
@@ -277,7 +302,7 @@ export default function ExpiryReportPage() {
               <th>Doc. Type</th>
               <th>Identifier / No.</th>
               <th>Expiry Date</th>
-              <th>Actions</th>
+                <th colSpan={2}>Actions</th> {/* --- MODIFIED HEADER --- */}
             </tr>
           </thead>
           <tbody>
@@ -323,6 +348,16 @@ export default function ExpiryReportPage() {
                   <Button variant="outline-primary" size="sm" onClick={() => handleUpdate(item)}>
                     Update
                   </Button>
+                </td>
+                 <td>
+                    <Button
+                        variant="outline-info"
+                        size="sm"
+                        onClick={() => handleSendNotice(item)}
+                        disabled={sendingNoticeId === `${item.type}-${item.record_id}`}
+                    >
+                        {sendingNoticeId === `${item.type}-${item.record_id}` ? 'Sending...' : 'Send'}
+                    </Button>
                 </td>
               </tr>
             ))}
