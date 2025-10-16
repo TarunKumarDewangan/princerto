@@ -9,7 +9,7 @@ return [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         // keep this only if you will call from the live site during testing:
-        'https://harshitonline.in',
+        'https://princerto.in',
     ],
 
     'allowed_origins_patterns' => [],
